@@ -13,8 +13,10 @@ projects := pdsdata \
 	    pds \
 	    pdsapp \
 	    qt \
-	    qwt
+	    qwt \
+	    epics
 
+epics_use   := /reg/g/pcds/package/external/epicsca-pcds-R1.0-r410
 acqiris_use := /reg/g/pcds/package/external/acqiris_V00-00-00
 evgr_use := /reg/g/pcds/package/external/evgr_V00-00-02
 leutron_use := /reg/g/pcds/package/external/leutron_V00-00-00
@@ -27,8 +29,6 @@ pdsapp_use := release
 
 
 rtems_use := /afs/slac.stanford.edu/g/npa/package/rtems/4.9.2
-#rtems_use := ~/rtems/4.9.2
-
 rce_use    := release
 rceusr_use := release
 rceapp_use := release
