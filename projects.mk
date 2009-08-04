@@ -7,14 +7,14 @@
 #            rcehw
 
 projects := pdsdata \
+	    qt \
+	    qwt \
+	    epics \
 	    acqiris \
 	    evgr \
 	    leutron \
 	    pds \
-	    pdsapp \
-	    qt \
-	    qwt \
-	    epics
+	    pdsapp
 
 epics_use   := /reg/g/pcds/package/external/epicsca-pcds-R1.0-r410
 acqiris_use := /reg/g/pcds/package/external/acqiris_V00-00-00
