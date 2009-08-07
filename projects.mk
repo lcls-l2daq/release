@@ -1,11 +1,12 @@
 # List of projects (low level first)
-projects := rtems \
+#projects := rtems \
             rce \
             rceusr \
             rceapp
 #            rcehw
 
-rtems_use := /reg/g/pcds/package/rtems/4.9.2
+rtems_use := /afs/slac.stanford.edu/g/npa/package/rtems/4.9.2
+#rtems_use := /reg/g/pcds/package/rtems/4.9.2
 #rtems_use := ~/rtems/4.9.2
 
 rce_use    := release
