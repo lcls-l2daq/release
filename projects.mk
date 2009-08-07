@@ -1,5 +1,6 @@
 # List of projects (low level first)
-#projects := rtems \
+ifneq ($(findstring ppc-rtems-rce,$(tgt_arch)),)
+projects := rtems \
             rce \
             rceusr \
             rceapp
@@ -13,7 +14,10 @@ rce_use    := release
 rceusr_use := release
 rceapp_use := release
 rcehw_use  := release
+endif
 
+ifneq ($(strip $(findstring i386-linux,$(tgt_arch)) \
+               $(findstring x86_64-linux,$(tgt_arch))),)
 projects := pdsdata \
 	    acqiris \
 	    evgr \
@@ -35,3 +39,5 @@ qwt_use := /reg/g/pcds/package/external/qwt-5.1.1
 pds_use := release
 pdsdata_use := release
 pdsapp_use := release
+
+endif
