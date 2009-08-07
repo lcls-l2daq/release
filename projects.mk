@@ -17,10 +17,10 @@ projects := pdsdata \
 	    acqiris \
 	    evgr \
 	    leutron \
-	    pds \
 	    qt \
 	    qwt \
 	    epics \
+	    pds \
 	    pdsapp
 
 
