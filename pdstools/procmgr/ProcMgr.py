@@ -319,8 +319,8 @@ class ProcMgr:
                 # close telnet connection
                 self.telnet.close()
         else:
-            print 'ERR: restart() telnet to %s port %d failed' % \
-                host, value[self.DICT_CTRL]
+            print 'ERR: restart() telnet to %s port %s failed' % \
+                (host, value[self.DICT_CTRL])
 
         return started
 
@@ -428,7 +428,7 @@ class ProcMgr:
                     yy.wait()
                     if (yy.returncode != 0):
                         print 'ERR: failed to run %s (procServ returned %d)' % \
-                            (args.split()[10], yy.returncode)
+                            (args.split()[11], yy.returncode)
             else:
                 # open a connection to the procmgr control port (procServ)
                 try:
