@@ -26,18 +26,20 @@ projects := pdsdata \
 	    qwt \
 	    epics \
 	    pds \
-	    pdsapp
+	    pdsapp \
+	    ami
 
 
 epics_use   := /reg/g/pcds/package/external/epicsca-pcds-R1.0-r410
-acqiris_use := /reg/g/pcds/package/external/acqiris_V00-00-00
+acqiris_use := /reg/g/pcds/package/external/acqiris_3.3a
 evgr_use := /reg/g/pcds/package/external/evgr_V00-00-02
 leutron_use := /reg/g/pcds/package/external/leutron_V00-00-00
-qt_use := /reg/g/pcds/package/qt-4.3.4
+qt_use := /reg/g/pcds/package/external/qt-4.3.4
 qwt_use := /reg/g/pcds/package/external/qwt-5.1.1
 
 pds_use := release
 pdsdata_use := release
 pdsapp_use := release
+ami_use := release
 
 endif
