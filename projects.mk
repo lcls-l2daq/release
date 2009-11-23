@@ -1,6 +1,7 @@
 # List of projects (low level first)
 ifneq ($(findstring ppc-rtems-rce,$(tgt_arch)),)
 projects := rtems \
+            pdsdata \
             rce \
             rceusr \
             rceapp
@@ -10,6 +11,7 @@ rtems_use := /afs/slac.stanford.edu/g/npa/package/rtems/4.9.2
 #rtems_use := /reg/g/pcds/package/rtems/4.9.2
 #rtems_use := ~/rtems/4.9.2
 
+pdsdata_use := release
 rce_use    := release
 rceusr_use := release
 rceapp_use := release
