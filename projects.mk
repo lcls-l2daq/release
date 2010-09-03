@@ -20,7 +20,18 @@ endif
 
 ifneq ($(strip $(findstring i386-linux,$(tgt_arch)) \
                $(findstring x86_64-linux,$(tgt_arch))),)
-projects := pdsdata
+projects := pdsdata \
+      acqiris \
+      evgr \
+      leutron \
+      qt \
+      qwt \
+      epics \
+      offlinedb \
+      pvcam \
+      pds \
+      pdsapp \
+      ami
 
 
 epics_use   := /reg/g/pcds/package/external/epicsca-pcds-R1.0-r410
