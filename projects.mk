@@ -1,4 +1,8 @@
 # List of projects (low level first)
+
+#
+# RTEMS
+#
 ifneq ($(findstring ppc-rtems-rce,$(tgt_arch)),)
 projects := rtems \
             pdsdata \
@@ -18,8 +22,10 @@ rceapp_use := release
 rcehw_use  := release
 endif
 
-ifneq ($(strip $(findstring i386-linux,$(tgt_arch)) \
-               $(findstring x86_64-linux,$(tgt_arch))),)
+#
+# 32-bit linux
+#
+ifneq ($(findstring i386-linux,$(tgt_arch)),)
 projects := pdsdata \
       acqiris \
       evgr \
@@ -45,6 +51,8 @@ qwt_use := /reg/g/pcds/package/external/qwt-5.1.1-wfopt
 offlinedb_use := /reg/g/pcds/package/external/offlinedb-1.2.0
 pvcam_use := /reg/g/pcds/package/external/pvcam2.7.1.7
 
+#pgpcard_use := /reg/g/pcds/package/pgpcard
+
 pds_use := release
 pdsdata_use := release
 pdsapp_use := release
@@ -52,5 +60,25 @@ ami_use := release
 rce_use := release
 rceusr_use := release
 rceapp_use := release
+
+endif
+
+#
+# 64-bit linux
+#
+ifneq ($(findstring x86_64-linux,$(tgt_arch)),)
+projects := pdsdata \
+      qt \
+      qwt \
+      python \
+      pdsapp \
+      ami
+qt_use      := /reg/g/pcds/package/external/qt-4.3.4
+qwt_use     := /reg/g/pcds/package/external/qwt-5.1.1-wfopt
+python_use  := /reg/g/pcds/package/python-2.5.2
+
+pdsdata_use := release
+pdsapp_use  := release
+ami_use     := release
 
 endif
