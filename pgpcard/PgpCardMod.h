@@ -13,6 +13,9 @@
 // Modification history:
 // 05/18/2010: created.
 //---------------------------------------------------------------------------------
+#ifndef PGP_CARD_MOD_H
+#define PGP_CARD_MOD_H
+
 #include <linux/types.h>
 
 // Return values
@@ -186,3 +189,5 @@ typedef struct {
 
 // Dump debug
 #define IOCTL_Dump_Debug 0x0A
+
+#endif
