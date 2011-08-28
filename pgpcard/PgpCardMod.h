@@ -2,7 +2,7 @@
 // Title         : Kernel Module For PGP To PCI Bridge Card
 // Project       : PGP To PCI-E Bridge Card
 //---------------------------------------------------------------------------------
-// File          : PgpCardMode.h
+// File          : PgpCardMod.h
 // Author        : Ryan Herbst, rherbst@slac.stanford.edu
 // Created       : 05/18/2010
 //---------------------------------------------------------------------------------
