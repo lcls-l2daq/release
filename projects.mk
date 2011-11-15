@@ -30,6 +30,7 @@ projects := pdsdata \
       acqiris \
       evgr \
       leutron \
+      edt \
       qt \
       qwt \
       epics \
@@ -46,6 +47,7 @@ epics_use   := /reg/g/pcds/package/external/epicsca-pcds-R1.0-r410
 acqiris_use := /reg/g/pcds/package/external/acqiris_3.3a
 evgr_use := /reg/g/pcds/package/external/evgr_V00-00-02
 leutron_use := /reg/g/pcds/package/external/leutron_V00-00-00
+edt_use := /reg/g/pcds/package/external/edt
 qt_use := /reg/g/pcds/package/external/qt-4.3.4
 qwt_use := /reg/g/pcds/package/external/qwt-5.1.1-wfopt
 offlinedb_use := /reg/g/pcds/package/external/offlinedb-1.3.0
@@ -71,6 +73,7 @@ projects := pdsdata \
       qt \
       qwt \
       python \
+      pds \
       pdsapp \
       ami
 qt_use      := /reg/g/pcds/package/external/qt-4.3.4
@@ -78,6 +81,7 @@ qwt_use     := /reg/g/pcds/package/external/qwt-5.1.1-wfopt
 python_use  := /reg/g/pcds/package/python-2.5.2
 
 pdsdata_use := release
+pds_use     := release
 pdsapp_use  := release
 ami_use     := release
 
