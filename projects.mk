@@ -84,7 +84,7 @@ projects := pdsdata \
 qt_use      := /reg/g/pcds/package/external/qt-4.3.4
 qwt_use     := /reg/g/pcds/package/external/qwt-5.1.1-wfopt
 python_use  := /reg/g/pcds/package/python-2.5.2
-libraw1394_use := /reg/g/pcds/package/external/libraw1394
+libraw1394_use := /reg/g/pcds/package/external/libdc1394
 libdc1394_use := /reg/g/pcds/package/external/libdc1394
 edt_use := /reg/g/pcds/package/external/edt
 
