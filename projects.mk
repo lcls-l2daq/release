@@ -75,6 +75,8 @@ projects := pdsdata \
       qt \
       qwt \
       edt \
+      offlinedb \
+      leutron \
       python \
       libraw1394 \
       libdc1394 \
@@ -86,7 +88,9 @@ qwt_use     := /reg/g/pcds/package/external/qwt-5.1.1-wfopt
 python_use  := /reg/g/pcds/package/python-2.5.2
 libraw1394_use := /reg/g/pcds/package/external/libdc1394
 libdc1394_use := /reg/g/pcds/package/external/libdc1394
+offlinedb_use := /reg/g/pcds/package/external/offlinedb-1.3.0
 edt_use := /reg/g/pcds/package/external/edt
+leutron_use := /reg/g/pcds/package/external/leutron_V00-00-00
 
 pds_use := release
 pdsdata_use := release
