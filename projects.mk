@@ -39,10 +39,7 @@ projects := pdsdata \
       relaxd \
       pds \
       pdsapp \
-      ami \
-            rce \
-            rceusr \
-            rceapp
+      ami
 
 epics_use   := /reg/g/pcds/package/external/epicsca-pcds-R1.0-r410
 acqiris_use := /reg/g/pcds/package/external/acqiris_3.3a
