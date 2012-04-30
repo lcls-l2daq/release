@@ -18,6 +18,10 @@
 
 #include <linux/types.h>
 
+#ifndef NUMBER_OF_LANES
+#define NUMBER_OF_LANES (4)
+#endif
+
 // Return values
 #define SUCCESS 0
 #define ERROR   -1
@@ -60,6 +64,21 @@ typedef struct {
 
 } PgpCardRx;
 
+typedef struct {
+    __u32 PgpLoopBack;
+    __u32 PgpRxReset;
+    __u32 PgpTxReset;
+    __u32 PgpLocLinkReady;
+    __u32 PgpRemLinkReady;
+    __u32 PgpRxReady;
+    __u32 PgpTxReady;
+    __u32 PgpRxCount;
+    __u32 PgpCellErrCnt;
+    __u32 PgpLinkDownCnt;
+    __u32 PgpLinkErrCnt;
+    __u32 PgpFifoErr;
+} PgpCardLinkStatus;
+
 // Status Structure
 typedef struct {
 
@@ -81,61 +100,7 @@ typedef struct {
    __u32 PciDevice;
    __u32 PciBus;
 
-   // PGP 0 Status
-   __u32 Pgp0LoopBack;
-   __u32 Pgp0RxReset;
-   __u32 Pgp0TxReset;
-   __u32 Pgp0LocLinkReady;
-   __u32 Pgp0RemLinkReady;
-   __u32 Pgp0RxReady;
-   __u32 Pgp0TxReady;
-   __u32 Pgp0RxCount;
-   __u32 Pgp0CellErrCnt;
-   __u32 Pgp0LinkDownCnt;
-   __u32 Pgp0LinkErrCnt;
-   __u32 Pgp0FifoErr;
-
-   // PGP 1 Status
-   __u32 Pgp1LoopBack;
-   __u32 Pgp1RxReset;
-   __u32 Pgp1TxReset;
-   __u32 Pgp1LocLinkReady;
-   __u32 Pgp1RemLinkReady;
-   __u32 Pgp1RxReady;
-   __u32 Pgp1TxReady;
-   __u32 Pgp1RxCount;
-   __u32 Pgp1CellErrCnt;
-   __u32 Pgp1LinkDownCnt;
-   __u32 Pgp1LinkErrCnt;
-   __u32 Pgp1FifoErr;
-
-   // PGP 2 Status
-   __u32 Pgp2LoopBack;
-   __u32 Pgp2RxReset;
-   __u32 Pgp2TxReset;
-   __u32 Pgp2LocLinkReady;
-   __u32 Pgp2RemLinkReady;
-   __u32 Pgp2RxReady;
-   __u32 Pgp2TxReady;
-   __u32 Pgp2RxCount;
-   __u32 Pgp2CellErrCnt;
-   __u32 Pgp2LinkDownCnt;
-   __u32 Pgp2LinkErrCnt;
-   __u32 Pgp2FifoErr;
-
-   // PGP 3 Status
-   __u32 Pgp3LoopBack;
-   __u32 Pgp3RxReset;
-   __u32 Pgp3TxReset;
-   __u32 Pgp3LocLinkReady;
-   __u32 Pgp3RemLinkReady;
-   __u32 Pgp3RxReady;
-   __u32 Pgp3TxReady;
-   __u32 Pgp3RxCount;
-   __u32 Pgp3CellErrCnt;
-   __u32 Pgp3LinkDownCnt;
-   __u32 Pgp3LinkErrCnt;
-   __u32 Pgp3FifoErr;
+   PgpCardLinkStatus PgpLink[4];
 
    // TX Descriptor Status
    __u32 TxDma3AFull;
@@ -145,7 +110,7 @@ typedef struct {
    __u32 TxReadReady;
    __u32 TxRetFifoCount;
    __u32 TxCount;
-   __u32 TxWrite;
+   __u32 TxBufferCount;
    __u32 TxRead;
 
    // RX Descriptor Status
@@ -156,8 +121,9 @@ typedef struct {
    __u32 RxReadReady;
    __u32 RxRetFifoCount;
    __u32 RxCount;
-   __u32 RxWrite;
-   __u32 RxRead;
+   __u32 RxBufferCount;
+   __u32 RxWrite[4];
+   __u32 RxRead[4];
 
 } PgpCardStatus;
 
@@ -189,5 +155,9 @@ typedef struct {
 
 // Dump debug
 #define IOCTL_Dump_Debug 0x0A
+
+#define IOCTL_Clear_Open_Clients 0xB
+
+#define IOCTL_Clear_Polling      0xC
 
 #endif
