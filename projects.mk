@@ -37,9 +37,10 @@ projects := pdsdata \
       offlinedb \
       pvcam \
       relaxd \
+      fli \
       pds \
       pdsapp \
-      ami
+      ami 
 
 epics_use   := /reg/g/pcds/package/external/epicsca-pcds-R1.0-r410
 acqiris_use := /reg/g/pcds/package/external/acqiris_3.3a
@@ -51,6 +52,7 @@ qt_use := /reg/g/pcds/package/external/qt-4.3.4
 qwt_use := /reg/g/pcds/package/external/qwt-5.1.1-wfopt
 offlinedb_use := /reg/g/pcds/package/external/offlinedb-1.3.0
 pvcam_use := /reg/g/pcds/package/external/pvcam2.7.1.7
+fli_use   := /reg/g/pcds/package/external/fli-dist-1.71
 
 #pgpcard_use := /reg/g/pcds/package/pgpcard
 
@@ -77,6 +79,7 @@ projects := pdsdata \
       python \
       libraw1394 \
       libdc1394 \
+      fli \
       pds \
       pdsapp \
       ami
@@ -88,6 +91,7 @@ libdc1394_use := /reg/g/pcds/package/external/libdc1394
 offlinedb_use := /reg/g/pcds/package/external/offlinedb-1.3.0
 edt_use := /reg/g/pcds/package/external/edt
 leutron_use := /reg/g/pcds/package/external/leutron_V00-00-00
+fli_use   := /reg/g/pcds/package/external/fli-dist-1.71
 
 pds_use := release
 pdsdata_use := release
