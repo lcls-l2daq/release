@@ -50,7 +50,7 @@ edt_use := /reg/g/pcds/package/external/edt
 relaxd_use := /reg/g/pcds/package/external/relaxd-1.8.0
 qt_use := /reg/g/pcds/package/external/qt-4.3.4
 qwt_use := /reg/g/pcds/package/external/qwt-5.1.1-wfopt
-offlinedb_use := /reg/g/pcds/package/external/offlinedb-1.3.0
+offlinedb_use := /reg/g/pcds/package/external/pdsdb-1.4.0
 pvcam_use := /reg/g/pcds/package/external/pvcam2.7.1.7
 fli_use   := /reg/g/pcds/package/external/fli-dist-1.71
 
