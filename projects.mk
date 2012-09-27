@@ -38,6 +38,7 @@ projects := pdsdata \
       pvcam \
       relaxd \
       fli \
+      andor \
       pds \
       pdsapp \
       ami 
@@ -53,6 +54,7 @@ qwt_use := /reg/g/pcds/package/external/qwt-5.1.1-wfopt
 offlinedb_use := /reg/g/pcds/package/external/offlinedb-1.4.0
 pvcam_use := /reg/g/pcds/package/external/pvcam2.7.1.7
 fli_use   := /reg/g/pcds/package/external/fli-dist-1.71
+andor_use := /reg/g/pcds/package/external/andor-2.93.30007
 
 #pgpcard_use := /reg/g/pcds/package/pgpcard
 
