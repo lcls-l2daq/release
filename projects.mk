@@ -82,6 +82,7 @@ projects := pdsdata \
       libraw1394 \
       libdc1394 \
       fli \
+      andor \
       pds \
       pdsapp \
       ami
@@ -94,6 +95,7 @@ offlinedb_use := /reg/g/pcds/package/external/offlinedb-1.4.0
 edt_use := /reg/g/pcds/package/external/edt
 leutron_use := /reg/g/pcds/package/external/leutron_V00-00-00
 fli_use   := /reg/g/pcds/package/external/fli-dist-1.71
+andor_use := /reg/g/pcds/package/external/andor-2.93.30007
 
 pds_use := release
 pdsdata_use := release
