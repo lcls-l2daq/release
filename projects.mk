@@ -39,6 +39,8 @@ projects := pdsdata \
       relaxd \
       fli \
       andor \
+      libusb \
+      usdusb4 \
       pds \
       pdsapp \
       ami 
@@ -55,6 +57,8 @@ offlinedb_use := /reg/g/pcds/package/external/offlinedb-1.4.0
 pvcam_use := /reg/g/pcds/package/external/pvcam2.7.1.7
 fli_use   := /reg/g/pcds/package/external/fli-dist-1.71
 andor_use := /reg/g/pcds/package/external/andor-2.93.30007
+libusb_use := /reg/g/pcds/package/external/libusb-1.0.0
+usdusb4_use := /reg/g/pcds/package/external/usdusb4
 
 #pgpcard_use := /reg/g/pcds/package/pgpcard
 
@@ -83,6 +87,7 @@ projects := pdsdata \
       libdc1394 \
       fli \
       andor \
+      usdusb4 \
       pds \
       pdsapp \
       ami
@@ -96,6 +101,7 @@ edt_use := /reg/g/pcds/package/external/edt
 leutron_use := /reg/g/pcds/package/external/leutron_V00-00-00
 fli_use   := /reg/g/pcds/package/external/fli-dist-1.71
 andor_use := /reg/g/pcds/package/external/andor-2.93.30007
+usdusb4_use := /reg/g/pcds/package/external/usdusb4
 
 pds_use := release
 pdsdata_use := release
