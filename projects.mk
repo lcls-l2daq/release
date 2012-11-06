@@ -43,7 +43,8 @@ projects := pdsdata \
       usdusb4 \
       pds \
       pdsapp \
-      ami 
+      ami \
+      timetool
 
 epics_use   := /reg/g/pcds/package/external/epicsca-pcds-R1.0-r410
 acqiris_use := /reg/g/pcds/package/external/acqiris_3.3a
@@ -69,6 +70,7 @@ ami_use := release
 rce_use := release
 rceusr_use := release
 rceapp_use := release
+timetool_use := release
 
 endif
 
@@ -90,7 +92,8 @@ projects := pdsdata \
       usdusb4 \
       pds \
       pdsapp \
-      ami
+      ami \
+      timetool
 qt_use      := /reg/g/pcds/package/external/qt-4.3.4
 qwt_use     := /reg/g/pcds/package/external/qwt-5.1.1-wfopt
 python_use  := /reg/g/pcds/package/python-2.5.2
@@ -108,5 +111,6 @@ pdsdata_use := release
 pds_use     := release
 pdsapp_use  := release
 ami_use     := release
+timetool_use := release
 
 endif
