@@ -81,6 +81,7 @@ ifneq ($(findstring x86_64-linux,$(tgt_arch)),)
 projects := pdsdata \
       qt \
       qwt \
+      epics \
       edt \
       offlinedb \
       leutron \
@@ -94,6 +95,7 @@ projects := pdsdata \
       pdsapp \
       ami \
       timetool
+epics_use   := /reg/g/pcds/package/external/epicsca-pcds-R1.0-r410
 qt_use      := /reg/g/pcds/package/external/qt-4.3.4
 qwt_use     := /reg/g/pcds/package/external/qwt-5.1.1-wfopt
 python_use  := /reg/g/pcds/package/python-2.5.2
