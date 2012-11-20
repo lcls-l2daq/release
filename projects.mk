@@ -82,6 +82,7 @@ projects := pdsdata \
       qt \
       qwt \
       epics \
+      evgr \
       edt \
       offlinedb \
       leutron \
@@ -90,12 +91,14 @@ projects := pdsdata \
       libdc1394 \
       fli \
       andor \
+      libusb \
       usdusb4 \
       pds \
       pdsapp \
       ami \
       timetool
 epics_use   := /reg/g/pcds/package/external/epicsca-pcds-R1.0-r410
+evgr_use    := /reg/g/pcds/package/external/evgr_V00-00-02
 qt_use      := /reg/g/pcds/package/external/qt-4.3.4
 qwt_use     := /reg/g/pcds/package/external/qwt-5.1.1-wfopt
 python_use  := /reg/g/pcds/package/python-2.5.2
@@ -106,6 +109,7 @@ edt_use := /reg/g/pcds/package/external/edt
 leutron_use := /reg/g/pcds/package/external/leutron_V00-00-00
 fli_use   := /reg/g/pcds/package/external/fli-dist-1.71
 andor_use := /reg/g/pcds/package/external/andor-2.93.30007
+libusb_use := /reg/g/pcds/package/external/libusb-1.0.0
 usdusb4_use := /reg/g/pcds/package/external/usdusb4
 
 pds_use := release
