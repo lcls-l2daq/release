@@ -1,13 +1,24 @@
 # Architecture flags
 # ------------------
-arch_tgts := ppc-rtems-rce405 ppc-rtems-ml405 i386-linux x86_64-linux sparc-solaris
+arch_tgts :=
+arch_tgts_u := ppc-rtems-rce405 ppc-rtems-ml405 i386-linux x86_64-linux x86_64-rhel6 sparc-solaris
 arch_opts := opt dbg
 
+src_arch := $(shell uname -r)
+ifneq ($(findstring el6,$(src_arch)),)
+arch_tgts_q := $(filter-out i386-linux x86_64-linux,$(arch_tgts_u))	
+else
+ifneq ($(findstring el5,$(src_arch)),)
+arch_tgts_q := $(filter-out x86_64-rhel6,$(arch_tgts_u))	
+else
+arch_tgts_q := $(arch_tgts_u)
+endif
+endif
+
 define arch_opt_template
-arch_tgts += $$(addsuffix -$(1),$$(arch_tgts))
+arch_tgts += $$(addsuffix -$(1),$$(arch_tgts_q))
 endef
 $(foreach opt,$(arch_opts),$(eval $(call arch_opt_template,$(opt))))
-
 
 # i386 Linux specific flags
 ifneq ($(findstring i386-linux,$(tgt_arch)),)
@@ -27,6 +38,7 @@ CXXFLAGS := $(CFLAGS)
 CASFLAGS := -x assembler-with-cpp -P $(CFLAGS)
 LDFLAGS  := -m32 -shared
 LXFLAGS  := -m32
+
 USRLIBDIR := /usr/lib
 else
 ifneq ($(findstring x86_64,$(tgt_arch)),)
@@ -107,3 +119,4 @@ endif
 ifneq ($(findstring -dbg,$(tgt_arch)),)
 DEFINES += -g
 endif
+

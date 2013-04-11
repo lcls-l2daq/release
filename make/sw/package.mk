@@ -145,6 +145,11 @@ print:
 	@echo	"depends   = $(depends)"
 	@echo	"objects   = $(objects)"
 	@echo	"managers  = $(MANAGERS)"
+	@echo   "usrlibdir = $(USRLIBDIR)"
+	@echo   "qtincdir  = $(qtincdir)"
+	@echo   "qtlibsdir = $(qtlibsdir)"
+	@echo   "qtslibdir = $(qtslibdir)"
+	@echo   "qwtsinc   = $(qwtsinc)"
 
 clean: userclean
 ifneq ($(objects),)

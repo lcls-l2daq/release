@@ -3,7 +3,11 @@
 #
 
 # Call Qt meta object compiler (moc)
+ifneq ($(findstring rhel6,$(tgt_arch)),)
+MOC := /usr/bin/moc-qt4
+else
 MOC := $(RELEASE_DIR)/build/qt/bin/moc
+endif
 
 $(objdir)/%_moc.o: $(objdir)/%_moc.cc
 	@echo "[CX] Compiling $<"
