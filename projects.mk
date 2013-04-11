@@ -71,15 +71,13 @@ rce_use := release
 rceusr_use := release
 rceapp_use := release
 timetool_use := release
-
 endif
 
 #
 # 64-bit linux
 #
-ifneq ($(findstring x86_64-linux,$(tgt_arch)),)
+ifneq ($(findstring x86_64,$(tgt_arch)),)
 projects := pdsdata \
-      qt \
       qwt \
       epics \
       evgr \
@@ -119,4 +117,9 @@ pdsapp_use  := release
 ami_use     := release
 timetool_use := release
 
+# RHEL6 has qt in its distribution
+ifeq ($(findstring x86_64-rhel6,$(tgt_arch)),)
+projects += qt
 endif
+endif
+
