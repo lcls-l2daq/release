@@ -160,4 +160,6 @@ typedef struct {
 
 #define IOCTL_Clear_Polling      0xC
 
+#define IOCTL_Write_Scratch      0xD
+
 #endif
