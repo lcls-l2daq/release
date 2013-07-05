@@ -23,13 +23,15 @@ cleanall:
 	$(quiet)$(RM) -r build
 
 define soft-link
-  if [ ! -e $(1) ]; then \
-    if [ -e $(2) ]; then \
-      echo '[SL] Make soft link $(1)'; \
-      ln -s $(2) $(1);     \
-    else \
-      echo '[SL] *** project $(2) not found'; \
-    fi \
+  if [ -e $(1) ]; then \
+    rm $(1); \
+  else \
+    echo '[SL] Will make soft link $(1)'; \
+  fi
+  if [ -e $(2) ]; then \
+    ln -s $(2) $(1); \
+  else \
+    echo '[SL] *** project $(2) not found'; \
   fi
 endef
 
