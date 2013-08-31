@@ -84,14 +84,9 @@ endif
 # 32-bit linux
 #
 ifneq ($(findstring i386-linux,$(tgt_arch)),)
-projects := boost \
-      pdsdata \
-      ndarray \
-=======
 projects := pdsdata \
       boost \
       ndarray \
->>>>>>> 1.41
       acqiris \
       evgr \
       leutron \
