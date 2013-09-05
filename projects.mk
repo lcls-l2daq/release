@@ -1,12 +1,9 @@
 # List of projects (low level first)
 
-boost_use      := /reg/common/package/boost/1.49.0-python2.7/x86_64-rhel5-gcc41-opt/
-ndarray_use    := /reg/common/package/ndarray/1.1.3/x86_64-rhel5-gcc41-opt
-
-boost_use_include    := $(boost_use)/include
-boost_use_lib_x86_64 := $(boose_use)/lib
-
-ndarray_use_include := $(ndarray_use)
+#
+#  Determine which packages are in this release
+#
+rprojects := $(wildcard *)
 
 #
 #  List external package base directories for convenience
@@ -48,9 +45,9 @@ boost_use_lib_x86_64 := $(boose_use)/lib
 
 ndarray_use_include := $(ndarray_use)
 
-qwt_use_include    := $(qwt_use)/include
-qwt_use_lib_i386   := $(qwt_use)/lib/i386-linux
-qwt_use_lib_x86_64 := $(qwt_use)/lib/x86_64-linux
+#qwt_use_include    := $(qwt_use)/include
+#qwt_use_lib_i386   := $(qwt_use)/lib/i386-linux
+#qwt_use_lib_x86_64 := $(qwt_use)/lib/x86_64-linux
 
 pdsalg_use_include    := $(pdsalg_use)/x86_64-linux-opt
 pdsalg_use_lib_i386   := $(pdsalg_use)/i386-linux-opt/lib
@@ -60,39 +57,26 @@ pdsdata_use_include    := $(pdsdata_use)/x86_64-linux-opt
 pdsdata_use_lib_i386   := $(pdsdata_use)/i386-linux-opt/lib
 pdsdata_use_lib_x86_64 := $(pdsdata_use)/x86_64-linux-opt/lib
 
-#
-# RTEMS
-#
-ifneq ($(findstring ppc-rtems-rce,$(tgt_arch)),)
-projects := rtems \
-            rce \
-            rceusr \
-            rceapp
-#            rcehw
+projects :=
 
-#rtems_use := /afs/slac.stanford.edu/g/npa/package/rtems/4.9.2
-#rtems_use := /reg/g/pcds/package/rtems/4.9.2
-rtems_use := ~/rtems/4.9.2
-
-rce_use    := release
-rceusr_use := release
-rceapp_use := release
-rcehw_use  := release
+# RHEL6 has qt in its distribution
+ifeq ($(findstring x86_64-rhel6,$(tgt_arch)),)
+projects += qt
 endif
 
-#
-# 32-bit linux
-#
-ifneq ($(findstring i386-linux,$(tgt_arch)),)
-projects := pdsdata \
+projects += \
+      pdsdata \
       boost \
       ndarray \
+      qwt \
+      pdsalg
+
+ifneq ($(filter pds, $(rprojects)),)
+  projects += \
       acqiris \
       evgr \
       leutron \
       edt \
-      qt \
-      qwt \
       epics \
       offlinedb \
       pvcam \
@@ -105,55 +89,16 @@ projects := pdsdata \
       pds \
       pdsapp \
       pdsalg \
-      ami \
       timetool
 
-pds_use      := release
-pdsapp_use   := release
-ami_use      := release
-rce_use      := release
-rceusr_use   := release
-rceapp_use   := release
-timetool_use := release
+  pds_use        := release
+  pdsapp_use     := release
+  timetool_use   := release
 endif
 
-#
-# 64-bit linux
-#
-ifneq ($(findstring x86_64,$(tgt_arch)),)
-projects := pdsdata \
-      boost \
-      ndarray \
-      qwt \
-      epics \
-      evgr \
-      edt \
-      offlinedb \
-      leutron \
-      python \
-      libraw1394 \
-      libdc1394 \
-      fli \
-      andor \
-      libusb \
-      usdusb4 \
-      qwt \
-      epics \
-      pds \
-      pdsapp \
-      pdsalg \
-      ami \
-      timetool
-
-pds_use      := release
-pds_use      := release
-pdsapp_use   := release
-ami_use      := release
-timetool_use := release
-
-# RHEL6 has qt in its distribution
-ifeq ($(findstring x86_64-rhel6,$(tgt_arch)),)
-projects += qt
+ifneq ($(filter ami, $(rprojects)),)
+  projects += ami
+  ami_use := release
 endif
-endif
+
 
