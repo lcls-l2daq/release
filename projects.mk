@@ -69,7 +69,8 @@ projects += \
       boost \
       ndarray \
       qwt \
-      pdsalg
+      pdsalg \
+      python
 
 ifneq ($(filter pds, $(rprojects)),)
   projects += \
