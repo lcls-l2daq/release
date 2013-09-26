@@ -29,8 +29,8 @@ relaxd_use     := /reg/g/pcds/package/external/relaxd-1.8.0
 pvcam_use      := /reg/g/pcds/package/external/pvcam2.7.1.7
 boost_use      := /reg/common/package/boost/1.49.0-python2.7/x86_64-rhel5-gcc41-opt/
 ndarray_use    := /reg/common/package/ndarray/1.1.3/x86_64-rhel5-gcc41-opt
-pdsalg_use     := /reg/common/package/pdsalg/0.0.0
-pdsdata_use    := /reg/common/package/pdsdata/devel
+pdsalg_use     := /reg/common/package/pdsalg/1.0.1
+pdsdata_use    := /reg/common/package/pdsdata/7.1.0
 
 #
 #  *_use_include definitions will create a directory structure under build for
@@ -53,7 +53,7 @@ pdsalg_use_include    := $(pdsalg_use)/x86_64-linux-opt
 pdsalg_use_lib_i386   := $(pdsalg_use)/i386-linux-opt/lib
 pdsalg_use_lib_x86_64 := $(pdsalg_use)/x86_64-linux-opt/lib
 
-pdsdata_use_include    := $(pdsdata_use)/x86_64-linux-opt
+pdsdata_use_include    := $(pdsdata_use)/i386-linux-opt
 pdsdata_use_lib_i386   := $(pdsdata_use)/i386-linux-opt/lib
 pdsdata_use_lib_x86_64 := $(pdsdata_use)/x86_64-linux-opt/lib
 
@@ -80,6 +80,7 @@ ifneq ($(filter pds, $(rprojects)),)
       edt \
       epics \
       offlinedb \
+      libdc1394 \
       pvcam \
       relaxd \
       fli \
