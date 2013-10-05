@@ -75,11 +75,12 @@ ifneq ($$(libslib_$(1)),)
   linklibs_$(1)  += $$(call reverse,$$(call getlinkslib,$$(libslib_$(1))))
 endif
 ifeq ($$(LIBEXTNS),so)
+  rpaths_$(1)       := -Wl,-rpath='$$(call getrpaths,$$(liblibs_$(1)))'
 ifneq ($$(ifversn_$(1)),)
   ifversnflags_$(1) := -Wl,--version-script=$$(ifversn_$(1))
 endif
 endif
-  linkflags_$(1) := $$(linkdirs_$(1)) $$(linklibs_$(1))
+linkflags_$(1) := $$(linkdirs_$(1)) $$(linklibs_$(1)) $$(rpaths_$(1))
 $$(library_$(1)): $$(libobjs_$(1))
 endef
 
