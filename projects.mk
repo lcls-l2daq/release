@@ -29,7 +29,8 @@ relaxd_use     := /reg/g/pcds/package/external/relaxd-1.8.0
 pvcam_use      := /reg/g/pcds/package/external/pvcam2.7.1.7
 boost_use      := /reg/common/package/boost/1.49.0-python2.7/x86_64-rhel5-gcc41-opt/
 ndarray_use    := /reg/common/package/ndarray/1.1.3/x86_64-rhel5-gcc41-opt
-pdsalg_use     := /reg/common/package/pdsalg/1.0.2
+pdsalg_use     := /reg/common/package/pdsalg/1.0.3
+#pdsalg_use     := /reg/neh/home/weaver/ana-newbuild/install_new
 pdsdata_use    := /reg/common/package/pdsdata/7.2.2
 #pdsdata_use    := /reg/neh/home/weaver/ana-build/install_new
 
