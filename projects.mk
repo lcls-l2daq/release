@@ -92,7 +92,7 @@ ifneq ($(filter pds, $(rprojects)),)
       usdusb4 \
       epics \
       pds \
-      pdsapp \
+      pdsapp
 
   pds_use        := release
   pdsapp_use     := release
