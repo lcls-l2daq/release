@@ -33,7 +33,6 @@ pdsalg_use     := /reg/common/package/pdsalg/1.0.3
 #pdsalg_use     := /reg/neh/home/weaver/ana-newbuild/install_new
 pdsdata_use    := /reg/common/package/pdsdata/7.2.4
 #pdsdata_use    := /reg/neh/home/weaver/ana-build/install_new
-timetool_use   := /reg/g/pcds/dist/pds/7.1.0/build/timetool
 
 #
 #  *_use_include definitions will create a directory structure under build for
@@ -97,6 +96,8 @@ ifneq ($(filter pds, $(rprojects)),)
   pds_use        := release
   pdsapp_use     := release
   timetool_use   := release
+else
+  timetool_use   := /reg/g/pcds/dist/pds/7.1.0.a/build/timetool
 endif
 
 projects += timetool
