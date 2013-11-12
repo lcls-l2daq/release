@@ -98,7 +98,8 @@ ifneq ($(filter pds, $(rprojects)),)
   pdsapp_use     := release
   timetool_use   := release
 else
-  timetool_use   := /reg/g/pcds/dist/pds/7.1.0.a/build/timetool
+#  timetool_use   := /reg/g/pcds/dist/pds/7.1.0.a/build/timetool
+  timetool_use   := /reg/g/pcds/dist/pds/7.3.0-p7.2.6/build/timetool
 endif
 
 projects += timetool
