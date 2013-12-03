@@ -32,7 +32,7 @@ ndarray_use    := /reg/common/package/ndarray/1.1.3/x86_64-rhel5-gcc41-opt
 pdsalg_use     := /reg/common/package/pdsalg/1.0.3
 #pdsalg_use     := /reg/neh/home/weaver/ana-newbuild/install_new
 #pdsdata_use    := /reg/neh/home/jackp/e/workspace/release/myrelease
-pdsdata_use    := /reg/common/package/pdsdata/7.2.6
+pdsdata_use    := /reg/common/package/pdsdata/7.2.8
 #pdsdata_use    := /reg/neh/home/weaver/ana-build/install_new
 
 #
