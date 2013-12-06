@@ -27,13 +27,11 @@ usdusb4_use    := /reg/g/pcds/package/external/usdusb4
 acqiris_use    := /reg/g/pcds/package/external/acqiris_3.3a
 relaxd_use     := /reg/g/pcds/package/external/relaxd-1.8.0
 pvcam_use      := /reg/g/pcds/package/external/pvcam2.7.1.7
+gsl_use        := /reg/g/pcds/package/external/gsl-1.13
 boost_use      := /reg/common/package/boost/1.49.0-python2.7/x86_64-rhel5-gcc41-opt/
 ndarray_use    := /reg/common/package/ndarray/1.1.3/x86_64-rhel5-gcc41-opt
 pdsalg_use     := /reg/common/package/pdsalg/1.0.3
-#pdsalg_use     := /reg/neh/home/weaver/ana-newbuild/install_new
-#pdsdata_use    := /reg/neh/home/jackp/e/workspace/release/myrelease
-pdsdata_use    := /reg/common/package/pdsdata/7.2.8
-#pdsdata_use    := /reg/neh/home/weaver/ana-build/install_new
+pdsdata_use    := /reg/common/package/pdsdata/7.2.9
 
 #
 #  *_use_include definitions will create a directory structure under build for
@@ -99,13 +97,13 @@ ifneq ($(filter pds, $(rprojects)),)
   timetool_use   := release
 else
 #  timetool_use   := /reg/g/pcds/dist/pds/7.1.0.a/build/timetool
-  timetool_use   := /reg/g/pcds/dist/pds/7.3.0-p7.2.6/build/timetool
+  timetool_use   := /reg/g/pcds/dist/pds/7.3.2-p7.2.6/build/timetool
 endif
 
 projects += timetool
 
 ifneq ($(filter ami, $(rprojects)),)
-  projects += ami
+  projects += gsl ami
   ami_use := release
 endif
 
