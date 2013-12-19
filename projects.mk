@@ -30,8 +30,8 @@ pvcam_use      := /reg/g/pcds/package/external/pvcam2.7.1.7
 gsl_use        := /reg/g/pcds/package/external/gsl-1.13
 boost_use      := /reg/common/package/boost/1.49.0-python2.7/x86_64-rhel5-gcc41-opt/
 ndarray_use    := /reg/common/package/ndarray/1.1.3/x86_64-rhel5-gcc41-opt
-pdsalg_use     := /reg/common/package/pdsalg/1.0.3
-pdsdata_use    := /reg/common/package/pdsdata/7.2.9
+psalg_use     := /reg/common/package/psalg/1.0.4
+pdsdata_use    := /reg/common/package/pdsdata/7.2.12
 
 #
 #  *_use_include definitions will create a directory structure under build for
@@ -50,9 +50,9 @@ ndarray_use_include := $(ndarray_use)
 #qwt_use_lib_i386   := $(qwt_use)/lib/i386-linux
 #qwt_use_lib_x86_64 := $(qwt_use)/lib/x86_64-linux
 
-pdsalg_use_include    := $(pdsalg_use)/x86_64-linux-opt
-pdsalg_use_lib_i386   := $(pdsalg_use)/i386-linux-opt/lib
-pdsalg_use_lib_x86_64 := $(pdsalg_use)/x86_64-linux-opt/lib
+psalg_use_include    := $(psalg_use)/x86_64-linux-opt
+psalg_use_lib_i386   := $(psalg_use)/i386-linux-opt/lib
+psalg_use_lib_x86_64 := $(psalg_use)/x86_64-linux-opt/lib
 
 pdsdata_use_include    := $(pdsdata_use)/i386-linux-opt
 pdsdata_use_lib_i386   := $(pdsdata_use)/i386-linux-opt/lib
@@ -70,7 +70,7 @@ projects += \
       boost \
       ndarray \
       qwt \
-      pdsalg \
+      psalg \
       python
 
 ifneq ($(filter pds, $(rprojects)),)
