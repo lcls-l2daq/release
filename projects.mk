@@ -21,7 +21,7 @@ offlinedb_use  := /reg/g/pcds/package/external/offlinedb-1.5.1
 edt_use        := /reg/g/pcds/package/external/edt
 leutron_use    := /reg/g/pcds/package/external/leutron_V00-00-00
 fli_use        := /reg/g/pcds/package/external/fli-dist-1.71
-andor_use      := /reg/g/pcds/package/external/andor-2.93.30007
+andor_use      := /reg/g/pcds/package/external/andor-2.95.30003.0
 libusb_use     := /reg/g/pcds/package/external/libusb-1.0.0
 usdusb4_use    := /reg/g/pcds/package/external/usdusb4
 acqiris_use    := /reg/g/pcds/package/external/acqiris_3.3a
@@ -38,7 +38,7 @@ pdsdata_use    := /reg/common/package/pdsdata/7.2.12
 #    external packages which don't already have the needed structure.  The
 #    *_use_lib_i386 will create the lib/ structure with soft-links to the
 #    variable reference for i386-linux-*.  The *_use_lib_x86_64 will create the
-#    analogous soft-links for x86_64-linux-* libraries.  
+#    analogous soft-links for x86_64-linux-* libraries.
 #  Packages without a *_use_include definition will just have a soft-link under build.
 #
 boost_use_include    := $(boost_use)/include
