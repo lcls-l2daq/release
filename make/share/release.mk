@@ -49,6 +49,8 @@ define build-ext-dir
   $(call soft-link,$(1)/lib/x86_64-linux    ,$($(2)_use_lib_x86_64))
   $(call soft-link,$(1)/lib/x86_64-linux-opt,$($(2)_use_lib_x86_64))
   $(call soft-link,$(1)/lib/x86_64-linux-dbg,$($(2)_use_lib_x86_64))
+  $(call soft-link,$(1)/lib/x86_64-rhel6-opt,$($(2)_use_lib_x86_64))
+  $(call soft-link,$(1)/lib/x86_64-rhel6-dbg,$($(2)_use_lib_x86_64))
 endef
 
 #    $(call soft-link,$(1)/lib/$$arch,$($(2)_use_lib_$$arch)); 

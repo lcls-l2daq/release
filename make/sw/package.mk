@@ -105,7 +105,7 @@ endif
 ifeq ($$(LIBEXTNS),so)
   rpaths_$(1)    := -Wl,-rpath='$$(call getrpaths,$$(tgtlibs_$(1)))'
 endif
-  linkflags_$(1) := $$(linkdirs_$(1)) $$(linklibs_$(1)) $$(rpaths_$(1))
+  linkflags_$(1) := $$(linkdirs_$(1)) $$(linklibs_$(1)) $$(rpaths_$(1)) $$(tgtlnkflag_$(1))
 ifneq ($$(MANAGERS),)
   nomanagrs_$(1) := $$(filter-out $$(managrs_$(1)),$$(MANAGERS))
   nomanagrs_$(1) := $$(nomanagrs_$(1):%=$$(RTEMSDIR)/no-%.rel)
