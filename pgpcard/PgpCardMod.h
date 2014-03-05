@@ -162,6 +162,4 @@ typedef struct {
 
 #define IOCTL_Write_Scratch      0xD
 
-#define IOCTL_Dup_Count_Reset    0xE
-
 #endif
