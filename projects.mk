@@ -94,7 +94,6 @@ ifneq ($(filter pds, $(rprojects)),)
       andor \
       libusb \
       usdusb4 \
-      epics \
       pds \
       pdsapp
 
@@ -102,8 +101,10 @@ ifneq ($(filter pds, $(rprojects)),)
   pdsapp_use     := release
   timetool_use   := release
 else
+  projects += \
+      epics
 #  timetool_use   := /reg/g/pcds/dist/pds/7.1.0.a/build/timetool
-  timetool_use   := /reg/g/pcds/dist/pds/7.3.2-p7.2.6/build/timetool
+  timetool_use   := /reg/g/pcds/dist/pds/7.3.8.c-p7.2.16/build/timetool
 endif
 
 projects += timetool
