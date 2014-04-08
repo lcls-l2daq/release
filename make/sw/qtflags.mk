@@ -1,11 +1,11 @@
 ifneq ($(findstring linux,$(tgt_arch)),)
 qtlibdir  := qt/QtGui qt/QtCore
 qtslibdir :=
-ifneq ($(findstring x86_64,$(tgt_arch)),)
-qtincdir  := qt/include_64
-else
+#ifneq ($(findstring x86_64,$(tgt_arch)),)
+#qtincdir  := qt/include_64
+#else
 qtincdir  := qt/include
-endif
+#endif
 
 # qwt includes qt headers without package prefix!
 qwtincs := $(qtincdir)/Qt
