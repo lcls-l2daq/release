@@ -103,8 +103,7 @@ ifneq ($(filter pds, $(rprojects)),)
 else
   projects += \
       epics
-#  timetool_use   := /reg/g/pcds/dist/pds/7.1.0.a/build/timetool
-  timetool_use   := /reg/g/pcds/dist/pds/7.3.8.c-p7.2.16/build/timetool
+  timetool_use   := /reg/g/pcds/dist/pds/7.4.4-p7.2.22/build/timetool
 endif
 
 projects += timetool
