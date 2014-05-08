@@ -31,8 +31,8 @@ picam_use      := /reg/g/pcds/package/external/picam-2.6.1
 gsl_use        := /reg/g/pcds/package/external/gsl-1.13
 boost_use      := /reg/common/package/boost/1.49.0-python2.7/x86_64-rhel5-gcc41-opt/
 ndarray_use    := /reg/common/package/ndarray/1.1.3/x86_64-rhel5-gcc41-opt
-psalg_use      := /reg/common/package/psalg/1.0.4
-pdsdata_use    := /reg/common/package/pdsdata/8.0.3
+psalg_use      := /reg/common/package/psalg/1.0.6
+pdsdata_use    := /reg/common/package/pdsdata/8.0.5
 
 #
 #  *_use_include definitions will create a directory structure under build for
@@ -103,7 +103,9 @@ ifneq ($(filter pds, $(rprojects)),)
 else
   projects += \
       epics
-  timetool_use   := /reg/g/pcds/dist/pds/7.4.4-p7.2.22/build/timetool
+  timetool_use   := /reg/g/pcds/dist/pds/7.6.0-p8.0.5/build/timetool
+  timetool_use_include    := $(timetool_use)/include
+  timetool_use_lib_x86_64 := $(timetool_use)/lib/x86_64-linux-opt
 endif
 
 projects += timetool
