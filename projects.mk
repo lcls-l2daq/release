@@ -31,7 +31,7 @@ picam_use      := /reg/g/pcds/package/external/picam-2.6.1
 gsl_use        := /reg/g/pcds/package/external/gsl-1.13
 boost_use      := /reg/common/package/boost/1.49.0-python2.7/x86_64-rhel5-gcc41-opt/
 ndarray_use    := /reg/common/package/ndarray/1.1.3/x86_64-rhel5-gcc41-opt
-psalg_use      := /reg/common/package/psalg/1.0.6
+psalg_use      := /reg/common/package/psalg/1.0.7
 pdsdata_use    := /reg/common/package/pdsdata/8.0.12
 
 #
@@ -103,7 +103,7 @@ ifneq ($(filter pds, $(rprojects)),)
 else
   projects += \
       epics
-  timetool_use   := /reg/g/pcds/dist/pds/7.6.4-p8.0.8/build/timetool
+  timetool_use   := /reg/g/pcds/dist/pds/7.6.7-p8.0.10/build/timetool
   timetool_use_include    := $(timetool_use)/include
   timetool_use_lib_x86_64 := $(timetool_use)/lib/x86_64-linux-opt
 endif
