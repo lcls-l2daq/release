@@ -10,7 +10,7 @@ rprojects := $(wildcard *)
 #
 #epics_use      := /reg/common/package/epicsca/3.14.12
 epics_use       := /reg/g/pcds/package/external/epicsca-pcds-R1.0-r410
-evgr_use       := /reg/g/pcds/package/external/evgr_V00-00-03
+evgr_use       := /reg/g/pcds/package/external/evgr_V00-00-05
 qt_use         := /reg/common/package/qt/4.6.2
 qwt_use        := /reg/g/pcds/package/external/qwt-5.1.1-wfopt-logfix
 #python_use     := /reg/g/pcds/package/python-2.5.2
