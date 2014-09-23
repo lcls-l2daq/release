@@ -31,8 +31,10 @@ picam_use      := /reg/g/pcds/package/external/picam-2.6.1
 gsl_use        := /reg/g/pcds/package/external/gsl-1.13
 boost_use      := /reg/common/package/boost/1.49.0-python2.7/x86_64-rhel5-gcc41-opt/
 ndarray_use    := /reg/common/package/ndarray/1.1.3/x86_64-rhel5-gcc41-opt
-psalg_use      := /reg/common/package/psalg/1.0.8
-pdsdata_use    := /reg/common/package/pdsdata/8.1.3
+#psalg_use      := /reg/common/package/psalg/1.0.8
+psalg_use      := /reg/common/package/psalg/devel
+#pdsdata_use    := /reg/common/package/pdsdata/8.1.3
+pdsdata_use    := ~/myrelease/install/pdsdata
 #pdsdata_use    := /reg/common/package/pdsdata/devel
 
 #
