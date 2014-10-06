@@ -36,21 +36,34 @@ define soft-link
   fi
 endef
 
+define build-libo-dir
+  if [ ! -z $(2) ]; then \
+    $(call soft-link,$(1),$(2)-opt/lib); \
+    $(call soft-link,$(1)-opt,$(2)-opt/lib); \
+    $(call soft-link,$(1)-dbg,$(2)-dbg/lib); \
+  fi
+endef
+
+define build-lib-dir
+  if [ ! -z $(2) ]; then \
+    $(call soft-link,$(1),$(2)); \
+    $(call soft-link,$(1)-opt,$(2)); \
+    $(call soft-link,$(1)-dbg,$(2)); \
+  fi
+endef
+
 define build-ext-dir
   if [ ! -e $(1) ]; then \
     echo '[XD] Make external link directory $(1)'; \
     mkdir -p $(1); \
     mkdir -p $(1)/lib; \
-  fi
-  $(call soft-link,$(1)/include,$($(2)_use_include))
-  $(call soft-link,$(1)/lib/i386-linux    ,$($(2)_use_lib_i386))
-  $(call soft-link,$(1)/lib/i386-linux-opt,$($(2)_use_lib_i386))
-  $(call soft-link,$(1)/lib/i386-linux-dbg,$($(2)_use_lib_i386))
-  $(call soft-link,$(1)/lib/x86_64-linux    ,$($(2)_use_lib_x86_64))
-  $(call soft-link,$(1)/lib/x86_64-linux-opt,$($(2)_use_lib_x86_64))
-  $(call soft-link,$(1)/lib/x86_64-linux-dbg,$($(2)_use_lib_x86_64))
-  $(call soft-link,$(1)/lib/x86_64-rhel6-opt,$($(2)_use_lib_x86_64))
-  $(call soft-link,$(1)/lib/x86_64-rhel6-dbg,$($(2)_use_lib_x86_64))
+  fi; \
+  $(call soft-link,$(1)/include,$($(2)_use_include)); \
+  $(call build-libo-dir,$(1)/lib/i386-linux,$($(2)_use_i386)); \
+  $(call build-libo-dir,$(1)/lib/x86_64-linux,$($(2)_use_x86_64)); \
+  $(call build-libo-dir,$(1)/lib/x86_64-rhel6,$($(2)_use_x86_64)); \
+  $(call build-lib-dir,$(1)/lib/x86_64-linux,$($(2)_use_lib_x86_64)); \
+  $(call build-lib-dir,$(1)/lib/x86_64-rhel6,$($(2)_use_lib_x86_64))
 endef
 
 #    $(call soft-link,$(1)/lib/$$arch,$($(2)_use_lib_$$arch)); 
