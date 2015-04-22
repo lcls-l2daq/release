@@ -9,7 +9,7 @@ rprojects := $(wildcard *)
 #  List external package base directories for convenience
 #
 #epics_use      := /reg/common/package/epicsca/3.14.12
-epics_use       := /reg/g/pcds/package/external/epicsca-R3.14.12-0.4.0
+epics_use       := /reg/g/pcds/package/external/epicsca-pcds-R1.0-r410
 evgr_use       := /reg/g/pcds/package/external/evgr_V00-00-05
 qt_use         := /reg/common/package/qt/4.6.2
 qwt_use        := /reg/g/pcds/package/external/qwt-5.1.1-wfopt-logfix
