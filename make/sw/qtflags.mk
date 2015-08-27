@@ -1,4 +1,4 @@
-ifneq ($(findstring linux,$(tgt_arch)),)
+ifneq ($(findstring linux,$(tgt_arch)),$(findstring rhel7,$(tgt_arch)),)
 qtlibdir  := qt/QtGui qt/QtCore
 qtslibdir :=
 #ifneq ($(findstring x86_64,$(tgt_arch)),)

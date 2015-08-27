@@ -1,7 +1,7 @@
 # Architecture flags
 # ------------------
 arch_tgts :=
-arch_tgts_u := ppc-rtems-rce405 ppc-rtems-ml405 i386-linux x86_64-linux x86_64-rhel6 sparc-solaris
+arch_tgts_u := ppc-rtems-rce405 ppc-rtems-ml405 i386-linux x86_64-linux x86_64-rhel6 x86_64-rhel7 sparc-solaris
 arch_opts := opt dbg
 
 src_arch := $(shell uname -r)

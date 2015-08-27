@@ -62,8 +62,10 @@ define build-ext-dir
   $(call build-libo-dir,$(1)/lib/i386-linux,$($(2)_use_i386)); \
   $(call build-libo-dir,$(1)/lib/x86_64-linux,$($(2)_use_x86_64)); \
   $(call build-libo-dir,$(1)/lib/x86_64-rhel6,$($(2)_use_x86_64)); \
+  $(call build-libo-dir,$(1)/lib/x86_64-rhel7,$($(2)_use_x86_64)); \
   $(call build-lib-dir,$(1)/lib/x86_64-linux,$($(2)_use_lib_x86_64)); \
   $(call build-lib-dir,$(1)/lib/x86_64-rhel6,$($(2)_use_lib_x86_64))
+  $(call build-lib-dir,$(1)/lib/x86_64-rhel7,$($(2)_use_lib_x86_64))
 endef
 
 #    $(call soft-link,$(1)/lib/$$arch,$($(2)_use_lib_$$arch)); 
