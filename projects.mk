@@ -12,7 +12,7 @@ rprojects := $(wildcard *)
 #epics_use       := /reg/g/pcds/package/external/epicsca-pcds-R1.0-r410
 epics_use      := /reg/g/pcds/package/external/epicsca-R3.14.12-0.4.0
 evgr_use       := /reg/g/pcds/package/external/evgr_V00-00-05
-qt_use         := /reg/common/package/qt/4.6.2
+qt_use         := /reg/common/package/qt/4.8.4
 qwt_use        := /reg/g/pcds/package/external/qwt-5.1.1-wfopt-logfix
 #python_use     := /reg/g/pcds/package/python-2.5.2
 python_use     := /reg/common/package/python/2.5.5
@@ -33,7 +33,7 @@ gsl_use        := /reg/g/pcds/package/external/gsl-1.13
 boost_use      := /reg/common/package/boost/1.49.0-python2.7/x86_64-rhel5-gcc41-opt/
 ndarray_use    := /reg/common/package/ndarray/1.1.3/x86_64-rhel5-gcc41-opt
 psalg_use      := /reg/common/package/psalg/1.0.9
-pdsdata_use    := /reg/common/package/pdsdata/8.4.2
+pdsdata_use    := /reg/common/package/pdsdata/8.4.3
 #pdsdata_use    := /reg/common/package/pdsdata/devel
 
 #
