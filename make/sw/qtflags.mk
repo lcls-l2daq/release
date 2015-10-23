@@ -7,6 +7,12 @@ ifneq ($(findstring rhel6,$(tgt_arch)),)
 qtincdir  := 
 qtlibdir  := 
 qtslibdir := $(USRLIBDIR)/QtGui $(USRLIBDIR)/QtCore
+else
+ifneq ($(findstring rhel7,$(tgt_arch)),)
+qtincdir  := qt/include
+qtlibdir  := qt/QtGui qt/QtCore
+qtslibdir :=
+endif
 endif
 endif
 
