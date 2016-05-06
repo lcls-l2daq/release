@@ -23,6 +23,7 @@
 #include <linux/types.h>
 
 #include <string.h>
+#include <stdint.h>
 
 using namespace std;
 
@@ -63,24 +64,24 @@ class PgpCardG3Prom {
       void volatile *mapRead;      
       
       //! Erase Command
-      void eraseCommand(__u32 address);
+      void eraseCommand(uint32_t address);
       
       //! Program Command
-      void programCommand(__u32 address, __u16 data);
+      void programCommand(uint32_t address, uint16_t data);
       
       //! Buffered Program Command
-      void bufferedProgramCommand(__u32 *address, __u16 *data, __u16 size);
+      void bufferedProgramCommand(uint32_t *address, uint16_t *data, uint16_t size);
 
       //! Read FLASH memory Command
-      __u16 readWordCommand(__u32 address);
+      uint16_t readWordCommand(uint32_t address);
 
       //! Generate request word 
-      __u32 genReqWord(__u16 cmd, __u16 data);
+      uint32_t genReqWord(uint16_t cmd, uint16_t data);
 
       //! Generic FLASH write Command
-      void writeToFlash(__u32 address, __u16 cmd, __u16 data);
+      void writeToFlash(uint32_t address, uint16_t cmd, uint16_t data);
 
       //! Generic FLASH read Command
-      __u16 readFlash(__u32 address, __u16 cmd);        
+      uint16_t readFlash(uint32_t address, uint16_t cmd);        
 };
 #endif
