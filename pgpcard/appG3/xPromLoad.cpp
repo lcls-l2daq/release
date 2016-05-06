@@ -53,7 +53,7 @@ int main (int argc, char **argv) {
    }
    
    // Mapping the reboot register
-   reboot = (void volatile *)((__u32)mapStart+0x01C);
+   reboot = (void volatile *)((uint64_t)mapStart+0x01C);
    
    // Create the PgpCardG3Prom object
    prom = new PgpCardG3Prom(mapStart,filePath);
