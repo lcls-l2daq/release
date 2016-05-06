@@ -1,0 +1,34 @@
+#!/bin/sh
+
+module="pgpcardG3"
+device="pgpcardG3"
+mode="666"
+
+/sbin/insmod ./$module.ko || exit 1
+
+# remove stale nodes
+for d in `ls /dev/${device}*`
+do
+   rm -f $d
+done
+
+major=`grep pgpcardG3 /proc/devices | cut -f1 -d' '`
+
+i=0
+
+for num in $major
+do
+   for min in 0 1 2 3 4 5 6 7 8
+   do
+       mknod /dev/${device}_${i}_${min} c $num $min
+   done
+   ((i++))
+done
+
+i=0
+
+# give appropriate group/permissions
+for d in `ls /dev/${device}*`
+do
+   chmod $mode $d
+done
