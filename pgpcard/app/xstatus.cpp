@@ -11,6 +11,7 @@
 #include <iostream>
 #include "../include/PgpCardMod.h"
 #include "../include/PgpCardStatus.h"
+#define NUMBER_OF_LANES 4
 using namespace std;
 
 int main (int argc, char **argv) {
