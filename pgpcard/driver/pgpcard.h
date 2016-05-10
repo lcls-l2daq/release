@@ -50,7 +50,7 @@
 
 // Module Name
 #define MOD_NAME "pgpcard"
-#define PGPCARD_VERSION "pgpcard driver v02.00.01"
+#define PGPCARD_VERSION "pgpcard driver v02.00.02"
 
 // Number of minor devices =  number of combinations where one and
 //  only one group of contiguous bits is high is a four bit value.

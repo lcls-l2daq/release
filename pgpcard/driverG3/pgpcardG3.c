@@ -94,43 +94,32 @@ int PgpCardG3_Open(struct inode *inode, struct file *filp) {
 // Returns 0 on success, error code on failure
 int PgpCardG3_Release(struct inode *inode, struct file *filp) {
   struct PgpDevice *pgpDevice = (struct PgpDevice *)filp->private_data;
-  unsigned i;
+  unsigned mi;
   unsigned found = 0;
   unsigned count = 0;
-  unsigned maskIs = 0;
-  unsigned lane = 0;
-  unsigned mask = 0;
   spin_lock_irq(&(pgpDevice->releaseLock));
-  for (i=0; i<NUMBER_OF_MINOR_DEVICES; i++) {
-    if ((!found) && (pgpDevice->minor[i].fp == filp)) {
+  for (mi=0; mi<NUMBER_OF_MINOR_DEVICES; mi++) {
+    if ((!found) && (pgpDevice->minor[mi].fp == filp)) {
       printk(KERN_DEBUG"%s: Maj %u Closing client %u, mask 0x%x\n",
-          MOD_NAME, pgpDevice->major, i, pgpDevice->minor[i].mask);
-      if (pgpDevice->minor[i].mask) {
-        pgpDevice->goingDown |= pgpDevice->minor[i].mask;
-        maskIs = 1;
-        printk(KERN_DEBUG"%s: Maj %u set %x going down %x\n", MOD_NAME, pgpDevice->major, pgpDevice->minor[i].mask, pgpDevice->goingDown);
+          MOD_NAME, pgpDevice->major, mi, pgpDevice->minor[mi].mask);
+      if (pgpDevice->minor[mi].mask) {
+        pgpDevice->goingDown |= pgpDevice->minor[mi].mask;
+        printk(KERN_DEBUG"%s: Maj %u set %x going down %x\n", MOD_NAME, pgpDevice->major, pgpDevice->minor[mi].mask, pgpDevice->goingDown);
       }
-      pgpDevice->isOpen &= ~(pgpDevice->minor[i].mask);
+      pgpDevice->isOpen &= ~(pgpDevice->minor[mi].mask);
       found = 1;
-      pgpDevice->minor[i].fp = 0;
-      mask = pgpDevice->minor[i].mask;
-      pgpDevice->minor[i].mask = 0;
-      while (maskIs && ((mask&1) == 0)) {
-        lane += 1;
-        mask >>= 1;
+      pgpDevice->minor[mi].fp = 0;
+      pgpDevice->minor[mi].mask = 0;
+      init_waitqueue_head(&pgpDevice->minor[mi].inq);
+      init_waitqueue_head(&pgpDevice->minor[mi].outq);
+      while (pgpDevice->rxRead[mi] != pgpDevice->rxWrite[mi]) {
+        pgpDevice->reg->rxFree[mi] = pgpDevice->rxQueue[mi][pgpDevice->rxRead[mi]]->dma;
+        pgpDevice->rxRead[mi] = (pgpDevice->rxRead[mi] + 1) % (NUMBER_OF_RX_CLIENT_BUFFERS);
+        count += 1;
       }
-      if (maskIs) {
-        init_waitqueue_head(&pgpDevice->minor[i].inq);
-        init_waitqueue_head(&pgpDevice->minor[i].outq);
-        while (pgpDevice->rxRead[i] != pgpDevice->rxWrite[i]) {
-          pgpDevice->reg->rxFree[lane] = pgpDevice->rxQueue[i][pgpDevice->rxRead[i]]->dma;
-          pgpDevice->rxRead[i] = (pgpDevice->rxRead[i] + 1) % (NUMBER_OF_RX_CLIENT_BUFFERS);
-          count += 1;
-        }
-        if (count) {
-          printk(KERN_WARNING "%s: PgpCardG3_Release reclaimed %u buffer%s for client %u\n",
-              MOD_NAME, count, count>1 ? "s" : "", i);
-        }
+      if (count) {
+        printk(KERN_WARNING "%s: PgpCardG3_Release reclaimed %u buffer%s for client %u\n",
+            MOD_NAME, count, count>1 ? "s" : "", mi);
       }
     }
   }
@@ -141,9 +130,9 @@ int PgpCardG3_Release(struct inode *inode, struct file *filp) {
         MOD_NAME,pgpDevice->major, MINOR(inode->i_cdev->dev), pgpDevice->isOpen);
     return ERROR;
   }
-  if (pgpDevice->rxTossedBuffers[i]) {
+  if (pgpDevice->rxTossedBuffers[mi]) {
     printk(KERN_WARNING"%s: Maj %u client %u has discarded %u buffers\n",
-        MOD_NAME, pgpDevice->major, i, pgpDevice->rxTossedBuffers[i]);
+        MOD_NAME, pgpDevice->major, mi, pgpDevice->rxTossedBuffers[mi]);
   }
   pgpDevice->openCount -= 1;
   if (pgpDevice->openCount == 0) {
@@ -1155,7 +1144,13 @@ int PgpCardG3_Ioctl(struct inode *inode, struct file *filp, __u32 cmd, unsigned 
 
 int my_Ioctl(struct file *filp, __u32 cmd, __u64 argument) {
   int i;
+  int ret = SUCCESS;
+  unsigned found = 0;
+  unsigned offset = 0;
   unsigned mi;
+  unsigned newMask;
+  __u32 reqPorts;
+  __u32 curPorts;
   PgpCardG3Status  status;
   PgpCardG3Status *stat = &status;
   __u32          tmp;
@@ -1178,8 +1173,50 @@ int my_Ioctl(struct file *filp, __u32 cmd, __u64 argument) {
 
     // Add more ports to the allocation
     case IOCTL_Add_More_Ports:
+      found = 0;
+      reqPorts = arg & 7;
+      offset = 0;
+      spin_lock_irq(&(pgpDevice->releaseLock));
+      for (mi=0; mi<NUMBER_OF_MINOR_DEVICES; mi++) {
+        if ((!found) && (pgpDevice->minor[mi].fp == filp)) {
+          printk(KERN_DEBUG"%s: Maj %u adding %u ports to client %u, mask 0x%x\n",
+              MOD_NAME, pgpDevice->major, reqPorts, mi, pgpDevice->minor[mi].mask);
+          found += 1;
+          mask = pgpDevice->minor[mi].mask;
+          curPorts = 0;
+          for (i=0; i<NUMBER_OF_LANES; i++) {
+            if ((mask>>i)&1) {
+              if (curPorts==0) {
+                offset = i;
+              }
+              curPorts += 1;
+            }
+          }
+          newMask = 0;
+          if (curPorts+reqPorts+offset<=NUMBER_OF_LANES) {
+            for (i=0; i<reqPorts; i++) {
+              newMask |= 1<<(offset+curPorts+i);
+            }
+            if ((newMask & pgpDevice->isOpen) == 0) {
+              pgpDevice->isOpen |= newMask;
+              pgpDevice->minor[mi].mask |= newMask;
+              printk(KERN_DEBUG"%s: Maj %u added %u ports to client %u, mask 0x%x\n",
+                  MOD_NAME, pgpDevice->major, reqPorts, mi, pgpDevice->minor[mi].mask);
+            } else {
+              printk(KERN_WARNING "%s: IOCTL_Add_More_Ports failed because one or more requested (0x%x) ports (0x%x) already open\n",
+                  MOD_NAME, newMask, pgpDevice->isOpen);
+              ret = ERROR;
+            }
+          } else {
+            printk(KERN_WARNING "%s: IOCTL_Add_More_Ports failed because too many requested (0x%x) curPorts (0x%x) offset(%u)\n",
+                MOD_NAME, reqPorts, curPorts, offset);
+            ret = ERROR;
+          }
+        }
+      }
+      spin_unlock_irq(&(pgpDevice->releaseLock));
       spin_unlock(&(pgpDevice->ioctlLock));
-      return(SUCCESS);
+      return(ret);
       break;
 
     // Write scratchpad

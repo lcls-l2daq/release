@@ -51,7 +51,7 @@
 
 // Module Name
 #define MOD_NAME "pgpcardG3"
-#define PGPCARD_VERSION "pgpcardG3 driver v02.00.02"
+#define PGPCARD_VERSION "pgpcardG3 driver v02.01.01"
 
 // Number of minor devices =  number of lanes plus one for the back channel
 //   for multiple port devices we may open an add next port IOCTL command.
