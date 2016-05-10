@@ -1,1 +1,0 @@
-/reg/lab2/home/jackp/e/workspace/Tests/TestsOMPstruc.cc

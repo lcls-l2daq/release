@@ -1,1 +1,0 @@
-../app_old/PgpCardG2Prom.cpp
