@@ -338,7 +338,7 @@ ssize_t PgpCardG3_Write(struct file *filp, const char* buffer, size_t count, lof
       return(pgpCardG3Tx->size);
       break;
     default :
-      printk(KERN_DEBUG "%s: cmd %u, data 0x%p\n", MOD_NAME, pgpCardG3Tx->cmd, pgpCardG3Tx->data);
+//      printk(KERN_DEBUG "%s: cmd %u, data 0x%p\n", MOD_NAME, pgpCardG3Tx->cmd, pgpCardG3Tx->data);
       return my_Ioctl(filp, pgpCardG3Tx->cmd, (__u64)pgpCardG3Tx->data);
       break;
   }
