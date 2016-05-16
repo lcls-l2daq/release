@@ -102,24 +102,26 @@ int PgpCardG3_Release(struct inode *inode, struct file *filp) {
     if ((!found) && (pgpDevice->minor[mi].fp == filp)) {
       printk(KERN_DEBUG"%s: Maj %u Closing client %u, mask 0x%x\n",
           MOD_NAME, pgpDevice->major, mi, pgpDevice->minor[mi].mask);
-      if (pgpDevice->minor[mi].mask) {
-        pgpDevice->goingDown |= pgpDevice->minor[mi].mask;
-        printk(KERN_DEBUG"%s: Maj %u set %x going down %x\n", MOD_NAME, pgpDevice->major, pgpDevice->minor[mi].mask, pgpDevice->goingDown);
-      }
-      pgpDevice->isOpen &= ~(pgpDevice->minor[mi].mask);
       found = 1;
       pgpDevice->minor[mi].fp = 0;
-      pgpDevice->minor[mi].mask = 0;
-      init_waitqueue_head(&pgpDevice->minor[mi].inq);
-      init_waitqueue_head(&pgpDevice->minor[mi].outq);
-      while (pgpDevice->rxRead[mi] != pgpDevice->rxWrite[mi]) {
-        pgpDevice->reg->rxFree[mi] = pgpDevice->rxQueue[mi][pgpDevice->rxRead[mi]]->dma;
-        pgpDevice->rxRead[mi] = (pgpDevice->rxRead[mi] + 1) % (NUMBER_OF_RX_CLIENT_BUFFERS);
-        count += 1;
-      }
-      if (count) {
-        printk(KERN_WARNING "%s: PgpCardG3_Release reclaimed %u buffer%s for client %u\n",
-            MOD_NAME, count, count>1 ? "s" : "", mi);
+      if (mi < NUMBER_OF_LANES) {
+        if (pgpDevice->minor[mi].mask) {
+          pgpDevice->goingDown |= pgpDevice->minor[mi].mask;
+          printk(KERN_DEBUG"%s: Maj %u set %x going down %x\n", MOD_NAME, pgpDevice->major, pgpDevice->minor[mi].mask, pgpDevice->goingDown);
+        }
+        pgpDevice->isOpen &= ~(pgpDevice->minor[mi].mask);
+        pgpDevice->minor[mi].mask = 0;
+        init_waitqueue_head(&pgpDevice->minor[mi].inq);
+        init_waitqueue_head(&pgpDevice->minor[mi].outq);
+        while (pgpDevice->rxRead[mi] != pgpDevice->rxWrite[mi]) {
+          pgpDevice->reg->rxFree[mi] = pgpDevice->rxQueue[mi][pgpDevice->rxRead[mi]]->dma;
+          pgpDevice->rxRead[mi] = (pgpDevice->rxRead[mi] + 1) % (NUMBER_OF_RX_CLIENT_BUFFERS);
+          count += 1;
+        }
+        if (count) {
+          printk(KERN_WARNING "%s: PgpCardG3_Release reclaimed %u buffer%s for client %u\n",
+              MOD_NAME, count, count>1 ? "s" : "", mi);
+        }
       }
     }
   }
@@ -130,9 +132,12 @@ int PgpCardG3_Release(struct inode *inode, struct file *filp) {
         MOD_NAME,pgpDevice->major, MINOR(inode->i_cdev->dev), pgpDevice->isOpen);
     return ERROR;
   }
-  if (pgpDevice->rxTossedBuffers[mi]) {
+
+  if (mi < NUMBER_OF_LANES) {
+    if (pgpDevice->rxTossedBuffers[mi]) {
     printk(KERN_WARNING"%s: Maj %u client %u has discarded %u buffers\n",
         MOD_NAME, pgpDevice->major, mi, pgpDevice->rxTossedBuffers[mi]);
+    }
   }
   pgpDevice->openCount -= 1;
   if (pgpDevice->openCount == 0) {
