@@ -119,6 +119,9 @@ ifneq ($(findstring -dbg,$(tgt_arch)),)
 # RHEL7 g++ sometimes produces incorrect code when not optimized
 #   C-style-cast sometimes does not equate to static_cast when it should
 #   some instances of Queue<T>::insert(T* e) { insert((Entry*)e); }
-DEFINES += -g -O2
+# Later found this is only true for template instanciations where the
+#   class argument is not fully defined.  Can workaround in code.
+#DEFINES += -g -O2
+DEFINES += -g
 endif
 
