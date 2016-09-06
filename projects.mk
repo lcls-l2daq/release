@@ -34,6 +34,10 @@ gsl_use        := /reg/g/pcds/package/external/gsl-1.13
 boost_use      := /reg/common/package/boost/1.49.0-python2.7/x86_64-rhel5-gcc41-opt/
 ndarray_use    := /reg/common/package/ndarray/1.1.3/x86_64-rhel5-gcc41-opt
 psalg_use      := /reg/common/package/psalg/1.0.9
+#  requires boost 1.57.0 (boost_atomic.hpp)
+cpsw_use       := /reg/g/pcds/package/external/cpsw
+cpsw_boost_use := /reg/common/package/boost/1.57.0/x86_64-rhel7-gcc48-opt/
+yaml_use       := /reg/common/package/yaml-cpp/yaml-cpp-0.5.3/x86_64-rhel7-gcc48-opt
 pdsdata_use    := /reg/common/package/pdsdata/l2devn
 #pdsdata_use    := /reg/neh/home/weaver/ana-rel/install_new
 
@@ -76,7 +80,10 @@ projects += \
       ndarray \
       qwt \
       psalg \
-      python
+      python \
+      cpsw \
+      cpsw_boost \
+      yaml
 
 ifneq ($(filter pds, $(rprojects)),)
   projects += \
