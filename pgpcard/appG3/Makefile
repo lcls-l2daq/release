@@ -5,6 +5,7 @@ CFLAGS := -Wall -m$(ARCH) -I$(PWD) -lpthread -lrt -lm
 
 all:
 	$(CC) $(CFLAGS) xStatus.cpp -o xStatus
+	$(CC) $(CFLAGS) xDebug.cpp -o xDebug
 	$(CC) $(CFLAGS) xReset.cpp -o xReset
 	$(CC) $(CFLAGS) xLoop.cpp -o xLoop
 	$(CC) $(CFLAGS) xWrite.cpp -o xWrite

@@ -24,18 +24,20 @@
 #include <linux/types.h>
 #include <linux/spinlock.h>
 #include <asm/spinlock.h>
+#include "../include/PgpCardStatus.h"
 
 // DMA Buffer Size, Bytes
 #define DEF_RX_BUF_SIZE 2097152
 #define DEF_TX_BUF_SIZE 2097152
 
 #define NUMBER_OF_LANES 4
+#define NUMBER_OF_VC 4
 
 // Number of RX & TX Buffers
 #define NUMBER_OF_RX_BUFFERS 512
-#define MINIMUM_FIRMWARE_BUFFER_COUNT_THRESHOLD 32
-#define MAXIMUM_RX_CLIENT_BUFFERS (NUMBER_OF_RX_BUFFERS-MINIMUM_FIRMWARE_BUFFER_COUNT_THRESHOLD-1)
-#define NUMBER_OF_RX_CLIENT_BUFFERS 768
+#define MINIMUM_FIRMWARE_BUFFER_COUNT_THRESHOLD 4
+#define MAXIMUM_RX_CLIENT_BUFFERS (NUMBER_OF_RX_BUFFERS)
+#define NUMBER_OF_RX_CLIENT_BUFFERS MAXIMUM_RX_CLIENT_BUFFERS
 #define NUMBER_OF_TX_BUFFERS 64
 #define DEF_TX_QUEUE_CNT (NUMBER_OF_TX_BUFFERS)
 
@@ -50,13 +52,14 @@
 
 // Module Name
 #define MOD_NAME "pgpcard"
-#define PGPCARD_VERSION "pgpcard driver v02.00.02"
+#define PGPCARD_VERSION "pgpcard driver v02.02.01"
 
 // Number of minor devices =  number of combinations where one and
 //  only one group of contiguous bits is high is a four bit value.
 #define NUMBER_OF_MINOR_DEVICES (17) // 1 + 2*3 + 3*2 + 4*1
 #define ALL_LANES_MASK (0xf)
-#define MAX_NUMBER_OPEN_MINOR_DEVICES (NUMBER_OF_LANES + 1) // One for the back door
+#define NUMBER_OF_LANE_CLIENTS (NUMBER_OF_LANES*2)
+#define MAX_NUMBER_OPEN_CLIENTS (NUMBER_OF_LANE_CLIENTS + 1) // One for the back door
 
 enum MODELS {SmallMemoryModel=4, LargeMemoryModel=8};
 
@@ -113,9 +116,10 @@ struct RxBuffer {
    __u32       length;
 };
 
-// Minor structure
-struct Minor {
+// Client structure
+struct Client {
     __u32             mask;
+    __u32             vcMask;
     struct file*      fp;
     struct inode*     inode;
     // Queues
@@ -133,13 +137,13 @@ struct PgpDevice {
 
    // Device structure
    int          major;
-   struct Minor minor[MAX_NUMBER_OPEN_MINOR_DEVICES];
+   struct Client client[MAX_NUMBER_OPEN_CLIENTS];
    struct cdev  cdev;
 
    // Async queue
    struct fasync_struct *async_queue;
 
-   __u32 isOpen;    // minor device ports open mask
+   __u32 isOpen;    // lanes open mask
    __u32 openCount;
 
    // Debug flag
@@ -150,36 +154,39 @@ struct PgpDevice {
 
    // Top pointer for rx queue
    struct RxBuffer** rxBuffer;
-   struct RxBuffer** rxQueue[NUMBER_OF_LANES];
-   __u32            rxRead[NUMBER_OF_LANES];
-   __u32            rxWrite[NUMBER_OF_LANES];
-   __u32            rxBufferCount;
-   __u32*           rxHisto;
-   __u32*           rxLoopHisto;
-   __u32            rxLaneHisto[NUMBER_OF_LANES];
-   __u32            rxBuffersHisto[NUMBER_OF_RX_BUFFERS<<1];
-   __u32            rxTotalBufferCount;
-   __u32			rxCopyToUserPrintCount;
-   __u32            rxTossedBuffers[NUMBER_OF_LANES];
-   __u32            rxTotalTossedBuffers;
+   struct RxBuffer** rxQueue[NUMBER_OF_LANE_CLIENTS];
+   __u32             rxRead[NUMBER_OF_LANE_CLIENTS];
+   __u32             rxWrite[NUMBER_OF_LANE_CLIENTS];
+   __u32             rxBufferCount;
+   __u32*            rxHisto;
+   __u32*            rxLoopHisto;
+   __u32             rxLaneHisto[NUMBER_OF_LANES][NUMBER_OF_VC];
+   __u32*            rxBuffersHisto;
+   __u32             rxTotalBufferCount;
+   __u32			       rxCopyToUserPrintCount;
+   __u32             rxTossedBuffers[NUMBER_OF_LANE_CLIENTS];
+   __u32             rxTotalTossedBuffers;
 
    // Top pointer for tx queue
    __u32             txBufferCount;
    struct TxBuffer** txBuffer;
    __u32             txRead;
-   spinlock_t        txLock;
-   spinlock_t        txLockIrq;
-   spinlock_t        rxLock;
-   spinlock_t        readLock[NUMBER_OF_LANES];
-   spinlock_t        ioctlLock;
-   spinlock_t        releaseLock;
-   spinlock_t        pollLock;
+   spinlock_t*       txLock;
+   spinlock_t*       txLockIrq;
+   spinlock_t*       rxLock;
+   spinlock_t*       readLock;
+   spinlock_t*       ioctlLock;
+   spinlock_t*       releaseLock;
+   spinlock_t*       pollLock;
    __u32             goingDown;
    __u32             pollEnabled;
    __u32*            txHisto;
+   __u32*            txHistoLV;
    __u32             interruptNesting;
    __u32             noClientPacketCount[NUMBER_OF_LANES];
    __u32             noClientPacketMax;
+   PgpCardStatus*    status;
+
 };
 
 // TX32 Structure

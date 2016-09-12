@@ -38,45 +38,64 @@ struct PgpDevice gPgpDevices[MAX_PCI_DEVICES];
 
 // Open Returns 0 on success, error code on failure
 int PgpCard_Open(struct inode *inode, struct file *filp) {
+  int i;
   struct PgpDevice *pgpDevice;
   int requestedMinor;
   unsigned mi;
   unsigned startLooking = 0;
+  unsigned myVcMask = 0xf;
+  unsigned vcm = 0;
+  unsigned clients = 0;
   int ret = SUCCESS;
 
   // Extract structure for card
   pgpDevice = container_of(inode->i_cdev, struct PgpDevice, cdev);
   filp->private_data = pgpDevice;
   requestedMinor = iminor(inode);
-//  printk(KERN_DEBUG"%s: Maj %u Open major %u minor %u\n", MOD_NAME, pgpDevice->major, imajor(inode), iminor(inode));
-  if (requestedMinor == 0) { requestedMinor = 15; }
-  if (requestedMinor > ALL_LANES_MASK) startLooking = NUMBER_OF_LANES;
+//  printk(KERN_DEBUG"%s: Maj %u Open major %u client %u\n", MOD_NAME, pgpDevice->major, imajor(inode), iminor(inode));
+//  if (requestedMinor == 0) { requestedMinor = 15; }
+  if (requestedMinor > ALL_LANES_MASK) startLooking = NUMBER_OF_LANE_CLIENTS;
 
   // Conflict found?
-  spin_lock_irq(&(pgpDevice->releaseLock));
+  spin_lock_irq(pgpDevice->releaseLock);
   if ( pgpDevice->isOpen & requestedMinor ) {
-    printk(KERN_WARNING"%s: Open: module open failed. Device port conflict. Maj=%i, request 0x%x, already opened 0x%x\n",
-        MOD_NAME, pgpDevice->major, (unsigned)requestedMinor, (unsigned)pgpDevice->isOpen);
-    ret = ERROR;
-  } else if (requestedMinor < NUMBER_OF_MINOR_DEVICES) {
+    // find the client with the conflict
+ 	  for (i=0; i<NUMBER_OF_LANE_CLIENTS; i++) {
+	    if (requestedMinor & pgpDevice->client[i].mask) {
+	      vcm |= pgpDevice->client[i].vcMask;
+	      clients += 1;
+	    }
+	  }
+    if (vcm != 0xf) {
+      myVcMask = vcm ^ 0xf;
+    }
+	  if ((myVcMask == 0xf) || (clients > 1)) {
+	    printk(KERN_WARNING"%s: Open: module open failed. Device port conflict. Maj=%i, request 0x%x, already opened 0x%x found %u clients vcm(%x) myVcMask(%x)\n",
+	        MOD_NAME, pgpDevice->major, (unsigned)requestedMinor, (unsigned)pgpDevice->isOpen, clients, vcm, myVcMask);
+	    ret = ERROR;
+	  }
+  }
+  if ((ret == SUCCESS) && (requestedMinor < NUMBER_OF_MINOR_DEVICES)) {
     pgpDevice->goingDown &= ~(requestedMinor&0xf);
     printk(KERN_DEBUG"%s: Maj %u cleared %x going down %x\n", MOD_NAME, pgpDevice->major, requestedMinor & 0xf, pgpDevice->goingDown);
-    for(mi=startLooking; mi<MAX_NUMBER_OPEN_MINOR_DEVICES; mi++) {
-      if (pgpDevice->minor[mi].fp == 0) break;
+    for(mi=startLooking; mi<MAX_NUMBER_OPEN_CLIENTS; mi++) {
+      if (pgpDevice->client[mi].fp == 0) break;
     }
-    if (mi<MAX_NUMBER_OPEN_MINOR_DEVICES) {
-      pgpDevice->isOpen |= (requestedMinor & 0xf);
-      pgpDevice->minor[mi].mask = (__u32)requestedMinor & 0xf;
-      pgpDevice->minor[mi].fp = filp;
-      pgpDevice->minor[mi].inode = inode;
-      if (mi < NUMBER_OF_LANES) {
-        init_waitqueue_head(&pgpDevice->minor[mi].inq);
-        init_waitqueue_head(&pgpDevice->minor[mi].outq);
+    if (mi<MAX_NUMBER_OPEN_CLIENTS) {
+      pgpDevice->isOpen |= (requestedMinor & ALL_LANES_MASK);
+      pgpDevice->client[mi].mask = (__u32)requestedMinor & 0xf;
+      pgpDevice->client[mi].vcMask = 0;
+      pgpDevice->client[mi].fp = filp;
+      pgpDevice->client[mi].inode = inode;
+      if (mi < NUMBER_OF_LANE_CLIENTS) {
+        pgpDevice->client[mi].vcMask = myVcMask;
+        init_waitqueue_head(&pgpDevice->client[mi].inq);
+        init_waitqueue_head(&pgpDevice->client[mi].outq);
         pgpDevice->rxTossedBuffers[mi] = 0;
       }
-      printk(KERN_DEBUG"%s: Maj %u Opened client %u, mask=0x%x  pollEnabled=%u\n", MOD_NAME, pgpDevice->major,
-          mi, pgpDevice->minor[mi].mask, pgpDevice->pollEnabled);
-      if ((pgpDevice->openCount == 0) &&  (pgpDevice->minor[mi].mask != 0)){
+      printk(KERN_DEBUG"%s: Maj %u Opened client %u, mask=0x%x  vcMask=0x%x pollEnabled=%u\n", MOD_NAME, pgpDevice->major,
+          mi, pgpDevice->client[mi].mask, pgpDevice->client[mi].vcMask, pgpDevice->pollEnabled);
+      if ((pgpDevice->openCount == 0) &&  (pgpDevice->client[mi].mask != 0)){
         pgpDevice->pollEnabled = 1;
         printk(KERN_DEBUG"%s: Maj %u polling enabled\n", MOD_NAME, pgpDevice->major);
       }
@@ -86,10 +105,10 @@ int PgpCard_Open(struct inode *inode, struct file *filp) {
       ret =  ERROR;
     }
   } else {
-    printk(KERN_WARNING "%s: Requested minor number %u is too high\n", MOD_NAME, requestedMinor);
-    ret =  ERROR;
+    printk(KERN_WARNING "%s: Requested lane number %u is too high or found VC conflict above\n", MOD_NAME, requestedMinor);
+    ret =  ERROR;  //just in case the former
   }
-  spin_unlock_irq(&(pgpDevice->releaseLock));
+  spin_unlock_irq(pgpDevice->releaseLock);
   return ret;
 }
 
@@ -100,24 +119,41 @@ int PgpCard_Open(struct inode *inode, struct file *filp) {
 int PgpCard_Release(struct inode *inode, struct file *filp) {
   struct PgpDevice *pgpDevice = (struct PgpDevice *)filp->private_data;
   unsigned mi;
+  unsigned i = MAX_NUMBER_OPEN_CLIENTS;
   unsigned found = 0;
   unsigned count = 0;
-  spin_lock_irq(&(pgpDevice->releaseLock));
-  for (mi=0; mi<MAX_NUMBER_OPEN_MINOR_DEVICES; mi++) {
-    if ((!found) && (pgpDevice->minor[mi].fp == filp)) {
-      printk(KERN_DEBUG"%s: Maj %u Closing client %u, mask 0x%x\n",
-          MOD_NAME, pgpDevice->major, mi, pgpDevice->minor[mi].mask);
-      if (pgpDevice->minor[mi].mask) {
-        pgpDevice->goingDown |= pgpDevice->minor[mi].mask;
-        printk(KERN_DEBUG"%s: Maj %u set %x going down %x\n", MOD_NAME, pgpDevice->major, pgpDevice->minor[mi].mask, pgpDevice->goingDown);
+  unsigned useAllVcs = 1;
+  spin_lock_irq(pgpDevice->releaseLock);
+  for (mi=0; mi<MAX_NUMBER_OPEN_CLIENTS; mi++) {
+    if ((!found) && (pgpDevice->client[mi].fp == filp)) {
+      printk(KERN_DEBUG"%s: Maj %u Closing client %u, mask 0x%x vcMask 0x%x\n",
+          MOD_NAME, pgpDevice->major, mi, pgpDevice->client[mi].mask, pgpDevice->client[mi].vcMask);
+      if (pgpDevice->client[mi].mask) {
+        if (pgpDevice->client[mi].vcMask != 0xf) {
+          useAllVcs = 0;
+          for (i=0; i<MAX_NUMBER_OPEN_CLIENTS; i++) {
+            if (pgpDevice->client[mi].mask & pgpDevice->client[i].mask) {
+              if (i!=mi) {
+                break;
+              }
+            }
+          }
+        }
+        // if we did not find a match or are using all VCs ...
+        if ((i==MAX_NUMBER_OPEN_CLIENTS) || (useAllVcs==1)) {
+          pgpDevice->goingDown |= pgpDevice->client[mi].mask;
+          printk(KERN_DEBUG"%s: Maj %u set %x going down %x\n", MOD_NAME, pgpDevice->major, pgpDevice->client[mi].mask, pgpDevice->goingDown);
+          pgpDevice->isOpen &= ~(pgpDevice->client[mi].mask);
+        }
       }
-      pgpDevice->isOpen &= ~(pgpDevice->minor[mi].mask);
       found = 1;
-      pgpDevice->minor[mi].fp = 0;
-      pgpDevice->minor[mi].mask = 0;
-      if (mi < NUMBER_OF_LANES) {
-        init_waitqueue_head(&pgpDevice->minor[mi].inq);
-        init_waitqueue_head(&pgpDevice->minor[mi].outq);
+      pgpDevice->client[mi].fp = 0;
+      pgpDevice->client[mi].mask = 0;
+      pgpDevice->client[mi].vcMask = 0;
+      if (mi < NUMBER_OF_LANE_CLIENTS) {
+        init_waitqueue_head(&pgpDevice->client[mi].inq);
+        init_waitqueue_head(&pgpDevice->client[mi].outq);
+        count = 0;
         while (pgpDevice->rxRead[mi] != pgpDevice->rxWrite[mi]) {
           pgpDevice->reg->rxFree = pgpDevice->rxQueue[mi][pgpDevice->rxRead[mi]]->dma;
           pgpDevice->rxRead[mi] = (pgpDevice->rxRead[mi] + 1) % (NUMBER_OF_RX_CLIENT_BUFFERS);
@@ -127,31 +163,31 @@ int PgpCard_Release(struct inode *inode, struct file *filp) {
           printk(KERN_WARNING "%s: PgpCard_Release reclaimed %u buffer%s for client %u\n",
               MOD_NAME, count, count>1 ? "s" : "", mi);
         }
+        if (pgpDevice->rxTossedBuffers[mi]) {
+          printk(KERN_WARNING"%s: Maj %u client %u has discarded %u buffers\n",
+              MOD_NAME, pgpDevice->major, mi, pgpDevice->rxTossedBuffers[mi]);
+        }
       }
     }
   }
   if (!found) {
     // File is not open
-    spin_unlock_irq(&(pgpDevice->releaseLock));
+    spin_unlock_irq(pgpDevice->releaseLock);
     printk(KERN_WARNING"%s: Release: module close failed. Device is not open. Maj=%i, Min=0x%x, Open=0x%x\n",
         MOD_NAME,pgpDevice->major, MINOR(inode->i_cdev->dev), pgpDevice->isOpen);
     return ERROR;
-  }
-  if (pgpDevice->rxTossedBuffers[mi]) {
-    printk(KERN_WARNING"%s: Maj %u client %u has discarded %u buffers\n",
-        MOD_NAME, pgpDevice->major, mi, pgpDevice->rxTossedBuffers[mi]);
   }
   pgpDevice->openCount -= 1;
   if (pgpDevice->openCount == 0) {
     pgpDevice->pollEnabled = 0;
     pgpDevice->goingDown = 0;
     printk(KERN_DEBUG"%s: Maj %u polling disabled goingDown %x\n", MOD_NAME, pgpDevice->major, pgpDevice->goingDown);
-    spin_unlock_irq(&(pgpDevice->releaseLock));
+    spin_unlock_irq(pgpDevice->releaseLock);
     dumpWarning(pgpDevice);
   } else {
     printk(KERN_DEBUG"%s: Maj %u polling %s, %u clients\n", MOD_NAME, pgpDevice->major,
         pgpDevice->pollEnabled ? "left enabled" : "now close, must be a panic!", pgpDevice->openCount);
-    spin_unlock_irq(&(pgpDevice->releaseLock));
+    spin_unlock_irq(pgpDevice->releaseLock);
   }
   return SUCCESS;
 }
@@ -168,7 +204,7 @@ ssize_t PgpCard_Write(struct file *filp, const char* buffer, size_t count, loff_
   PgpCardTx   myPgpCardTx;
   __u32       buf[count / sizeof(__u32)];
   __u32       theRightWriteSize = sizeof(PgpCardTx);
-  __u32       largeMemoryModel;
+  __u32       largeMemoryModel, smallMemoryModel;
   __u32       found = 0;
   __u32       mi = 0;  // minor index into open client list
   __u32       j;
@@ -183,8 +219,9 @@ ssize_t PgpCard_Write(struct file *filp, const char* buffer, size_t count, loff_
   }
 
   largeMemoryModel = buf[0] == LargeMemoryModel;
+  smallMemoryModel = buf[0] == SmallMemoryModel;
 
-  if (!largeMemoryModel) {
+  if (smallMemoryModel) {
     PgpCardTx32* p = (PgpCardTx32*) buf;
     pgpCardTx      = &myPgpCardTx;
     pgpCardTx->cmd     = p->cmd;
@@ -194,23 +231,33 @@ ssize_t PgpCard_Write(struct file *filp, const char* buffer, size_t count, loff_
     pgpCardTx->data    = (__u32*)(0LL | p->data);
     theRightWriteSize  = sizeof(PgpCardTx32);
     //       printk(KERN_WARNING "%s: Write: diddling 32->64 (0x%x)->(0x%p)\n", MOD_NAME, p->data, pgpCardTx->data);
-  } else {
+  } else if (largeMemoryModel) {
     pgpCardTx = (PgpCardTx*) buf;
+  } else {
+    printk(KERN_WARNING "%s: Write: failed because Bad Memory Model %u. Maj=%i\n",
+            MOD_NAME, buf[0], pgpDevice->major);
+    return ERROR;
   }
 
+  if ( pgpDevice->debug & 0x100 ) printk(KERN_DEBUG "%s: cmd 0x%x, data 0x%p\n", MOD_NAME, pgpCardTx->cmd, pgpCardTx->data);
   switch (pgpCardTx->cmd) {
     case IOCTL_Normal_Write :
-      for (i=0; i<MAX_NUMBER_OPEN_MINOR_DEVICES; i++) {
-        if (pgpDevice->minor[i].fp == filp) {
-          if (pgpDevice->minor[i].mask & (1 << pgpCardTx->pgpLane)) {
+      for (i=0; i<MAX_NUMBER_OPEN_CLIENTS; i++) {
+        if (pgpDevice->client[i].fp == filp) {
+          if (pgpDevice->client[i].mask & (1 << pgpCardTx->pgpLane)) {
             found = 1;
             mi = i;
           } else {
-            printk(KERN_WARNING "%s: Write: failed because this file pointer's mask 0x%x does not have lane %u opened\n",
-                MOD_NAME, pgpDevice->minor[i].mask, pgpCardTx->pgpLane);
+            printk(KERN_WARNING "%s: Write: failed because this client's (%d) mask 0x%x does not have lane %u opened\n",
+                MOD_NAME, i, pgpDevice->client[i].mask, pgpCardTx->pgpLane);
             return ERROR;
           }
         }
+      }
+      if (!(pgpDevice->client[mi].vcMask & (1 << pgpCardTx->pgpVc))) {
+        printk(KERN_WARNING "%s: Write: failed because this this client's (%d) vcMask 0x%x does not have VC %u opened\n",
+            MOD_NAME, mi, pgpDevice->client[mi].vcMask, pgpCardTx->pgpVc);
+        return ERROR;
       }
       if (!found) {
         printk(KERN_WARNING "%s: Write: failed because this file pointer is not opened\n", MOD_NAME);
@@ -228,7 +275,7 @@ ssize_t PgpCard_Write(struct file *filp, const char* buffer, size_t count, loff_
         printk(KERN_WARNING"%s: Write: passed size is too large for TX buffer. Maj=%i\n",MOD_NAME,pgpDevice->major);
         return(ERROR);
       }
-      // Are buffers are available
+      // Are buffers available
       if ( pgpDevice->debug & 0x10 ) {
         printk(KERN_DEBUG"%s: PgpCard_Write() test for buffers avail for lane=%u txRead=%u\n",
             MOD_NAME, pgpCardTx->pgpLane, pgpDevice->txRead);
@@ -236,6 +283,7 @@ ssize_t PgpCard_Write(struct file *filp, const char* buffer, size_t count, loff_
       if ( pgpDevice->debug & 0x20 ) {
         printk(KERN_DEBUG "-Lock-%u", pgpCardTx->pgpLane);
       }
+//      printk(KERN_DEBUG "%s: write: buffCount %u numBuffs %u\n", MOD_NAME, countTxBuffers(pgpDevice), NUMBER_OF_TX_BUFFERS);
       while ( (pgpDevice->txBufferCount = countTxBuffers(pgpDevice)) >= NUMBER_OF_TX_BUFFERS ) {
         if ( filp->f_flags & O_NONBLOCK ) {
           if ( pgpDevice->debug & 0x20 ) {
@@ -246,7 +294,7 @@ ssize_t PgpCard_Write(struct file *filp, const char* buffer, size_t count, loff_
         if ( pgpDevice->debug & 4 ) {
           printk(KERN_DEBUG"%s: Write: going to sleep. Maj=%i\n",MOD_NAME,pgpDevice->major);
         }
-        if (wait_event_interruptible(pgpDevice->minor[mi].outq, (pgpDevice->txBufferCount < NUMBER_OF_TX_BUFFERS))) {
+        if (wait_event_interruptible(pgpDevice->client[mi].outq, (pgpDevice->txBufferCount < NUMBER_OF_TX_BUFFERS))) {
           if ( pgpDevice->debug & 0x20 ) {
             printk(KERN_DEBUG "___\n");
           }
@@ -258,16 +306,16 @@ ssize_t PgpCard_Write(struct file *filp, const char* buffer, size_t count, loff_
       }
 
       j = 0;
-      spin_lock(&(pgpDevice->txLock));
+      spin_lock(pgpDevice->txLock);
       do {
         pgpDevice->txRead += 1;
         pgpDevice->txRead %= NUMBER_OF_TX_BUFFERS;
         if (pgpDevice->txBuffer[pgpDevice->txRead]->allocated != 0) {
           if ((pgpDevice->txBuffer[pgpDevice->txRead]->allocated)++ > 3) {
             pgpDevice->txBuffer[pgpDevice->txRead]->allocated = 0;
-            spin_lock_irq(&(pgpDevice->txLockIrq));
+            spin_lock_irq(pgpDevice->txLockIrq);
             pgpDevice->txBufferCount = countTxBuffers(pgpDevice);
-            spin_unlock_irq(&(pgpDevice->txLockIrq));
+            spin_unlock_irq(pgpDevice->txLockIrq);
             printk(KERN_DEBUG "%s: Write reclaimed buffer lane %u, vc %u, txRead %u\n", MOD_NAME,
                 pgpDevice->txBuffer[pgpDevice->txRead]->lane,
                 pgpDevice->txBuffer[pgpDevice->txRead]->vc,
@@ -277,15 +325,15 @@ ssize_t PgpCard_Write(struct file *filp, const char* buffer, size_t count, loff_
       } while ((j++ < NUMBER_OF_TX_BUFFERS) && (pgpDevice->txBuffer[pgpDevice->txRead]->allocated != 0));
 
       if (j >= NUMBER_OF_TX_BUFFERS) {  // should never happen
-        spin_unlock(&(pgpDevice->txLock));
+        spin_unlock(pgpDevice->txLock);
         return (-ERROR);
       }
 
       pgpDevice->txBuffer[pgpDevice->txRead]->allocated = 1;
-      spin_lock_irq(&(pgpDevice->txLockIrq));
+      spin_lock_irq(pgpDevice->txLockIrq);
       pgpDevice->txBufferCount = countTxBuffers(pgpDevice);
       pgpDevice->txHisto[pgpDevice->txBufferCount] += 1;
-      spin_unlock_irq(&(pgpDevice->txLockIrq));
+      spin_unlock_irq(pgpDevice->txLockIrq);
 
       if ( pgpDevice->debug & 0x10 ) {
         printk(KERN_DEBUG"%s: copy_from_user( %p, %p, %u\n", MOD_NAME,
@@ -299,7 +347,7 @@ ssize_t PgpCard_Write(struct file *filp, const char* buffer, size_t count, loff_
             pgpCardTx->data,
             pgpDevice->major);
         if ( pgpDevice->debug & 0x20 ) printk(KERN_DEBUG "___\n");
-        spin_unlock(&(pgpDevice->txLock));
+        spin_unlock(pgpDevice->txLock);
         return ERROR;
       }
 
@@ -316,6 +364,7 @@ ssize_t PgpCard_Write(struct file *filp, const char* buffer, size_t count, loff_
       descA += (pgpCardTx->pgpVc   << 28) & 0x30000000; // Bits 29:28 = VC
       descA += (pgpCardTx->size         ) & 0x00FFFFFF; // Bits 23:0 = Length
       descB = pgpDevice->txBuffer[pgpDevice->txRead]->dma;
+      pgpDevice->txHistoLV[pgpCardTx->pgpLane * NUMBER_OF_VC + pgpCardTx->pgpVc] += 1;
 
       // Debug
       if ( pgpDevice->debug & 2 ) {
@@ -333,12 +382,12 @@ ssize_t PgpCard_Write(struct file *filp, const char* buffer, size_t count, loff_
       pgpDevice->reg->txLWr[pgpCardTx->pgpLane & 3].txLWr1 = descB;
 
       if ( pgpDevice->debug & 0x20 ) printk(KERN_DEBUG "unlock\n");
-      spin_unlock(&(pgpDevice->txLock));
+      spin_unlock(pgpDevice->txLock);
       return(pgpCardTx->size);
       break;
     default :
       if ((pgpCardTx->cmd > IOCTL_Normal_Write) && (pgpCardTx->cmd <= IOCTL_End_Of_List)) {
-    	printk(KERN_DEBUG "%s: IOCTL cmd %d, data 0x%p\n", MOD_NAME, pgpCardTx->cmd, pgpCardTx->data);
+        printk(KERN_DEBUG "%s: IOCTL cmd %d, data 0x%p\n", MOD_NAME, pgpCardTx->cmd, pgpCardTx->data);
       }
       return my_Ioctl(filp, pgpCardTx->cmd, (__u64)pgpCardTx->data);
       break;
@@ -357,7 +406,7 @@ ssize_t PgpCard_Read(struct file *filp, char *buffer, size_t count, loff_t *f_po
   __u32 __user * dp;
   __u32       maxSize;
   __u32       copyLength;
-  __u32       largeMemoryModel;
+  __u32       largeMemoryModel, smallMemoryModel;
   __u32       found = 0;
   __u32       mi = 0;  // minor index into open client list
 
@@ -379,21 +428,18 @@ ssize_t PgpCard_Read(struct file *filp, char *buffer, size_t count, loff_t *f_po
   }
 
   largeMemoryModel = buf[0] == LargeMemoryModel;
+  smallMemoryModel = buf[0] == SmallMemoryModel;
 
   // Verify that size of passed structure and get variables from the correct structure.
-  if ( !largeMemoryModel ) {
+  if ( smallMemoryModel ) {
     // small memory model
-    if ( buf[0] != SmallMemoryModel) {
-      printk(KERN_WARNING"%s: Read: Neither small nor large memory model !!!! %u\n", MOD_NAME, buf[0]);
-      return(ERROR);
-    }
     if ( count != sizeof(PgpCardRx32) ) {
       printk(KERN_WARNING"%s: Read: passed size is not expected(%u) size(%u). Maj=%i\n",MOD_NAME, (unsigned)sizeof(PgpCardRx32), (unsigned)count, pgpDevice->major);
       return(ERROR);
     }
     dp      = (__u32*)(0LL | p32->data);
     maxSize = p32->maxSize;
-  } else {
+  } else if ( largeMemoryModel ) {
     // large memory model
     if ( count != sizeof(PgpCardRx) ) {
       printk(KERN_WARNING"%s: Read: passed size is not expected(%u) size(%u). Maj=%i\n",MOD_NAME, (unsigned)sizeof(PgpCardRx), (unsigned)count, pgpDevice->major);
@@ -402,10 +448,13 @@ ssize_t PgpCard_Read(struct file *filp, char *buffer, size_t count, loff_t *f_po
       dp      = p64->data;
       maxSize = p64->maxSize;
     }
+  } else {
+    printk(KERN_WARNING"%s: Read: failed, bad memory model %d\n", MOD_NAME, buf[0]);
+    return(ERROR);
   }
 
-  for (i=0; i<MAX_NUMBER_OPEN_MINOR_DEVICES; i++) {
-    if (!found && (pgpDevice->minor[i].fp == filp)) {
+  for (i=0; i<NUMBER_OF_LANE_CLIENTS; i++) {
+    if (!found && (pgpDevice->client[i].fp == filp)) {
       found = 1;
       mi = i;
     }
@@ -428,7 +477,7 @@ ssize_t PgpCard_Read(struct file *filp, char *buffer, size_t count, loff_t *f_po
       return(-EAGAIN);
     }
     if ( pgpDevice->debug & 4 ) printk(KERN_DEBUG"%s: Read: going to sleep. Maj=%i\n", MOD_NAME, pgpDevice->major);
-    if (wait_event_interruptible(pgpDevice->minor[mi].inq, (pgpDevice->rxRead[mi] != pgpDevice->rxWrite[mi]))) {
+    if (wait_event_interruptible(pgpDevice->client[mi].inq, (pgpDevice->rxRead[mi] != pgpDevice->rxWrite[mi]))) {
       spin_unlock(&(pgpDevice->readLock[mi]));
       return (-EAGAIN);
     }
@@ -442,12 +491,13 @@ ssize_t PgpCard_Read(struct file *filp, char *buffer, size_t count, loff_t *f_po
   if (pgpDevice->rxQueue[mi][pgpDevice->rxRead[mi]]->eofe |
       pgpDevice->rxQueue[mi][pgpDevice->rxRead[mi]]->fifoError |
       pgpDevice->rxQueue[mi][pgpDevice->rxRead[mi]]->lengthError) {
-    printk(KERN_WARNING "%s: Read: error encountered  eofe(%u), fifoError(%u), lengthError(%u) lane(%u)\n",
+    printk(KERN_WARNING "%s: Read: error encountered  eofe(%u), fifoError(%u), lengthError(%u) lane(%u) vc(%u)\n",
         MOD_NAME,
         pgpDevice->rxQueue[mi][pgpDevice->rxRead[mi]]->eofe,
         pgpDevice->rxQueue[mi][pgpDevice->rxRead[mi]]->fifoError,
         pgpDevice->rxQueue[mi][pgpDevice->rxRead[mi]]->lengthError,
-        pgpDevice->rxQueue[mi][pgpDevice->rxRead[mi]]->lane);
+        pgpDevice->rxQueue[mi][pgpDevice->rxRead[mi]]->lane,
+        pgpDevice->rxQueue[mi][pgpDevice->rxRead[mi]]->vc);
   }
 
   if ( pgpDevice->debug & 2 ) {
@@ -512,13 +562,13 @@ ssize_t PgpCard_Read(struct file *filp, char *buffer, size_t count, loff_t *f_po
     }
   }
 
-  spin_lock_irq(&(pgpDevice->rxLock));
+  spin_lock_irq(pgpDevice->rxLock);
   countRxBuffers(pgpDevice, 1);
   // Return entry to RX queue
    pgpDevice->reg->rxFree = pgpDevice->rxQueue[mi][pgpDevice->rxRead[mi]]->dma;
   // Increment read pointer
   pgpDevice->rxRead[mi] = (pgpDevice->rxRead[mi] + 1) % (NUMBER_OF_RX_CLIENT_BUFFERS);
-  spin_unlock_irq(&(pgpDevice->rxLock));
+  spin_unlock_irq(pgpDevice->rxLock);
 
   if ( pgpDevice->debug & 2 ) {
     printk(KERN_DEBUG"%s: Read: Added buffer %.8x to RX queue. Maj=%i\n",
@@ -538,6 +588,7 @@ static irqreturn_t PgpCard_IRQHandler(int irq, void *dev_id, struct pt_regs *reg
   __u32        idx;
   __u32        next;
   __u32        lane;
+  __u32        vc;
   __u32        bfcnt;
   __u32        i;
   __u32        mi;  // minor index into open client list
@@ -582,10 +633,10 @@ static irqreturn_t PgpCard_IRQHandler(int irq, void *dev_id, struct pt_regs *reg
           pgpDevice->txBufferCount = countTxBuffers(pgpDevice);
           // Wake up any writers
           mi = 0;
-          while (mi < MAX_NUMBER_OPEN_MINOR_DEVICES) {
-            if ((pgpDevice->goingDown & pgpDevice->minor[mi].mask) == 0) {
-              if (pgpDevice->minor[mi].fp != 0) {
-                wake_up_interruptible(&(pgpDevice->minor[mi].outq));
+          while (mi < MAX_NUMBER_OPEN_CLIENTS) {
+            if ((pgpDevice->goingDown & pgpDevice->client[mi].mask) == 0) {
+              if (pgpDevice->client[mi].fp != 0) {
+                wake_up_interruptible(&(pgpDevice->client[mi].outq));
               }
             }
             mi += 1;
@@ -610,12 +661,13 @@ static irqreturn_t PgpCard_IRQHandler(int irq, void *dev_id, struct pt_regs *reg
         descA = pgpDevice->reg->rxRead0;   // RxBuffer struct fields from the firmware
         descB = pgpDevice->reg->rxRead1;   // DMA pointer with next valid field in bit 1 from the firmware
         lane = (descA >> 30) & 0x3;
-        spin_lock_irq(&(pgpDevice->rxLock));
+        vc   = (descA >> 28) & 0x3;
+        spin_lock_irq(pgpDevice->rxLock);
         bfcnt = countRxBuffers(pgpDevice, 0);
-        spin_unlock_irq(&(pgpDevice->rxLock));
+        spin_unlock_irq(pgpDevice->rxLock);
         countRXFirmwareBuffers(pgpDevice, 1);
         rxLoopCount += 1;
-        pgpDevice->rxLaneHisto[lane] += 1;
+        pgpDevice->rxLaneHisto[lane][vc] += 1;
         // Find RX buffer entry
         for ( idx=0; idx < NUMBER_OF_RX_CLIENT_BUFFERS; idx++ ) {
           if ( pgpDevice->rxBuffer[idx]->dma == (descB & 0xFFFFFFFC) ) break;
@@ -623,12 +675,15 @@ static irqreturn_t PgpCard_IRQHandler(int irq, void *dev_id, struct pt_regs *reg
         // Entry was found
         if ( idx < NUMBER_OF_RX_CLIENT_BUFFERS ) {
           mi = 0;
-          while (mi < MAX_NUMBER_OPEN_MINOR_DEVICES) {
-            if (pgpDevice->minor[mi].mask & (1 << lane)) {break; }
+          while (mi < NUMBER_OF_LANE_CLIENTS) {
+            if ((pgpDevice->client[mi].mask & (1 << lane)) &&
+                (pgpDevice->client[mi].vcMask & (1 << vc))) {
+              break;
+            }
             mi++;
           }
           // If device is open ...
-          if ( mi < MAX_NUMBER_OPEN_MINOR_DEVICES ) {
+          if ( mi < NUMBER_OF_LANE_CLIENTS ) {
             // Drop data if too few buffers left
             if (bfcnt > MAXIMUM_RX_CLIENT_BUFFERS) {
               pgpDevice->reg->rxFree = (descB & 0xFFFFFFFC);
@@ -643,7 +698,7 @@ static irqreturn_t PgpCard_IRQHandler(int irq, void *dev_id, struct pt_regs *reg
               } else {
                 // Set descriptor into rxBuffer
                 pgpDevice->rxBuffer[idx]->lane        = lane;
-                pgpDevice->rxBuffer[idx]->vc          = (descA >> 28) & 0x3;
+                pgpDevice->rxBuffer[idx]->vc          = vc;
                 pgpDevice->rxBuffer[idx]->lengthError = (descA >> 26) & 0x1;
                 pgpDevice->rxBuffer[idx]->fifoError   = (descA >> 25) & 0x1;
                 pgpDevice->rxBuffer[idx]->eofe        = (descA >> 24) & 0x1;
@@ -655,7 +710,7 @@ static irqreturn_t PgpCard_IRQHandler(int irq, void *dev_id, struct pt_regs *reg
                       pgpDevice->rxBuffer[idx]->eofe, pgpDevice->rxBuffer[idx]->fifoError, pgpDevice->rxBuffer[idx]->lengthError,
                       (pgpDevice->rxBuffer[idx]->buffer), (void*)(pgpDevice->rxBuffer[idx]->dma));
                   printk(KERN_DEBUG "%s: Irq: rxWrite=%u\n", MOD_NAME, pgpDevice->rxWrite[mi]);
-                  printk(KERN_DEBUG "%s: Irq: inq=%p\n", MOD_NAME, (void*)&(pgpDevice->minor[mi].inq));
+                  printk(KERN_DEBUG "%s: Irq: inq=%p\n", MOD_NAME, (void*)&(pgpDevice->client[mi].inq));
                   printk(KERN_DEBUG "%s: Irq: rxQ=%p\n", MOD_NAME, (void*)pgpDevice->rxQueue);
                   printk(KERN_DEBUG "%s: Irq: rxQ[mi]=%p\n", MOD_NAME, (void*)pgpDevice->rxQueue[mi]);
                   if (pgpDevice->rxQueue[mi] != 0) {
@@ -665,13 +720,13 @@ static irqreturn_t PgpCard_IRQHandler(int irq, void *dev_id, struct pt_regs *reg
                 if (pgpDevice->rxQueue[mi] != 0) {
                   // Store to Queue
                   pgpDevice->rxQueue[mi][pgpDevice->rxWrite[mi]] = pgpDevice->rxBuffer[idx];
-                  spin_lock_irq(&(pgpDevice->rxLock));
+                  spin_lock_irq(pgpDevice->rxLock);
                   pgpDevice->rxWrite[mi] = next;
-                  spin_unlock_irq(&(pgpDevice->rxLock));
+                  spin_unlock_irq(pgpDevice->rxLock);
                   // Wake up the correct reader
-                  if ( &(pgpDevice->minor[mi].inq) ) {
-                    if ((pgpDevice->goingDown & pgpDevice->minor[mi].mask)  == 0) {
-                      wake_up_interruptible(&(pgpDevice->minor[mi].inq));
+                  if ( &(pgpDevice->client[mi].inq) ) {
+                    if ((pgpDevice->goingDown & pgpDevice->client[mi].mask)  == 0) {
+                      wake_up_interruptible(&(pgpDevice->client[mi].inq));
                     } else {
                       printk(KERN_WARNING "%s: Irq: not waking, going down %u mi=%u\n", MOD_NAME, pgpDevice->goingDown, mi);
                       pgpDevice->reg->rxFree = (descB & 0xFFFFFFFC);
@@ -734,10 +789,10 @@ static __u32 PgpCard_Poll(struct file *filp, poll_table *wait ) {
 
   struct PgpDevice *pgpDevice = (struct PgpDevice *)filp->private_data;
 
-  spin_lock(&(pgpDevice->pollLock));
+  spin_lock(pgpDevice->pollLock);
   if (pgpDevice->pollEnabled) {
-    for (i=0; i<MAX_NUMBER_OPEN_MINOR_DEVICES; i++) {
-      if (pgpDevice->minor[i].fp == filp) {
+    for (i=0; i<MAX_NUMBER_OPEN_CLIENTS; i++) {
+      if (pgpDevice->client[i].fp == filp) {
         found = 1;
         mi = i;
         break;
@@ -746,21 +801,21 @@ static __u32 PgpCard_Poll(struct file *filp, poll_table *wait ) {
 
     if (found) {
       if ( pgpDevice->debug & 8 ) {
-        printk(KERN_DEBUG"%s: Poll: Maj=%i Min=%u ", MOD_NAME, pgpDevice->major, pgpDevice->minor[mi].mask);
+        printk(KERN_DEBUG"%s: Poll: Maj=%i Min=%u ", MOD_NAME, pgpDevice->major, pgpDevice->client[mi].mask);
       }
-      poll_wait(filp, &(pgpDevice->minor[mi].inq), wait);
-      poll_wait(filp, &(pgpDevice->minor[mi].outq), wait);
+      poll_wait(filp, &(pgpDevice->client[mi].inq), wait);
+      poll_wait(filp, &(pgpDevice->client[mi].outq), wait);
 
       if ( pgpDevice->rxWrite[mi] != pgpDevice->rxRead[mi] ) {
         mask |= POLLIN | POLLRDNORM; // Readable
         readOk = 1;
       }
-      spin_lock_irq(&(pgpDevice->txLockIrq));
+      spin_lock_irq(pgpDevice->txLockIrq);
       if ( (pgpDevice->txBufferCount = countTxBuffers(pgpDevice)) < NUMBER_OF_TX_BUFFERS ) {
         mask |= POLLOUT | POLLWRNORM; // Writable
         writeOk = 1;
       }
-      spin_unlock_irq(&(pgpDevice->txLockIrq));
+      spin_unlock_irq(pgpDevice->txLockIrq);
     } else {
       printk(KERN_WARNING "%s: Poll: FAILED because this file pointer was not found to be open\n",
           MOD_NAME);
@@ -771,14 +826,14 @@ static __u32 PgpCard_Poll(struct file *filp, poll_table *wait ) {
   } else {
     mask |= POLLOUT | POLLWRNORM;
   }
-  spin_unlock(&(pgpDevice->pollLock));
+  spin_unlock(pgpDevice->pollLock);
   return(mask);
 }
 
 
 // Probe device
 static int PgpCard_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
-  int i, res, idx, ret;
+  int i, j, res, idx, ret;
   dev_t chrdev = 0;
   struct PgpDevice *pgpDevice;
   struct pci_device_id *id = (struct pci_device_id *) dev_id;
@@ -813,11 +868,14 @@ static int PgpCard_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev
 
   // Initialize device structure
   pgpDevice->major = MAJOR(chrdev);
-  for (i=0; i<NUMBER_OF_LANES; i++) {
-    pgpDevice->minor[i].mask = 0;
-    pgpDevice->minor[i].fp = 0;
-    pgpDevice->rxTossedBuffers[i] = 0;
-    spin_lock_init(&pgpDevice->readLock[i]);
+  pgpDevice->readLock = vmalloc(NUMBER_OF_LANE_CLIENTS * sizeof(spinlock_t));
+  for (i=0; i<MAX_NUMBER_OPEN_CLIENTS; i++) {
+    pgpDevice->client[i].mask = 0;
+    pgpDevice->client[i].fp = 0;
+    if (i<NUMBER_OF_LANE_CLIENTS) {
+      pgpDevice->rxTossedBuffers[i] = 0;
+      spin_lock_init(&(pgpDevice->readLock[i]));
+    }
   }
   pgpDevice->isOpen = 0;
   pgpDevice->openCount = 0;
@@ -827,12 +885,8 @@ static int PgpCard_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev
   pgpDevice->rxTotalBufferCount = 0;
   pgpDevice->rxTotalTossedBuffers = 0;
   pgpDevice->rxCopyToUserPrintCount = 0;
-  spin_lock_init(&pgpDevice->rxLock);
-  spin_lock_init(&pgpDevice->txLock);
-  spin_lock_init(&pgpDevice->txLockIrq);
-  spin_lock_init(&pgpDevice->ioctlLock);
-  spin_lock_init(&pgpDevice->releaseLock);
-  spin_lock_init(&pgpDevice->pollLock);
+
+  pgpDevice->status = (PgpCardStatus*) vmalloc(sizeof(PgpCardStatus));
 
   // Add device
   if ( cdev_add(&pgpDevice->cdev, chrdev, NUMBER_OF_MINOR_DEVICES) )
@@ -892,13 +946,17 @@ static int PgpCard_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev
   for ( idx=0; idx < NUMBER_OF_TX_BUFFERS; idx++ ) {
     pgpDevice->txHisto[idx] = 0;
   }
-
-  for ( i=0; i < NUMBER_OF_TX_BUFFERS; i++ ) {
-    pgpDevice->txHisto[i] = 0;
+  pgpDevice->txHistoLV = (__u32*)vmalloc(NUMBER_OF_LANES*NUMBER_OF_VC*sizeof(__u32));
+  for ( idx=0; idx < NUMBER_OF_LANES; idx++ ) {
+    for (i= 0; i < NUMBER_OF_VC; i++) {
+      pgpDevice->txHistoLV[idx*NUMBER_OF_VC+i] = 0;
+    }
   }
+  printk(KERN_DEBUG"%s: size of pgpDevice %u\n", MOD_NAME, (unsigned int)sizeof(struct PgpDevice));
   pgpDevice->txRead  = 0;
   pgpDevice->txBufferCount = 0;
   pgpDevice->interruptNesting = 0;
+  pgpDevice->rxBufferCount = 0;
   for (i=0; i<NUMBER_OF_LANES; i++) {
     pgpDevice->noClientPacketCount[i] = 0;
   }
@@ -907,18 +965,19 @@ static int PgpCard_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev
   // Set max frame size, clear rx buffer reset
   pgpDevice->reg->rxMaxFrame = DEF_RX_BUF_SIZE | 0x80000000;
 
-  // Init RX Buffers
+  // allocate variousn Buffers
   pgpDevice->rxBuffer   = (struct RxBuffer **) vmalloc(NUMBER_OF_RX_BUFFERS * sizeof(struct RxBuffer *));
-
+  pgpDevice->rxBuffersHisto = (__u32*)vmalloc((NUMBER_OF_RX_BUFFERS<<1) * sizeof(__u32));
   pgpDevice->rxHisto = (__u32*)vmalloc(NUMBER_OF_RX_CLIENT_BUFFERS * sizeof(__u32));
-  pgpDevice->rxBufferCount = 0;
   pgpDevice->rxLoopHisto = (__u32*)vmalloc(NUMBER_OF_RX_BUFFERS * sizeof(__u32));
 
   for ( i=0; i < NUMBER_OF_RX_BUFFERS; i++ ) {
     pgpDevice->rxLoopHisto[i] = 0;
   }
   for ( i=0; i < NUMBER_OF_LANES; i++ ) {
-    pgpDevice->rxLaneHisto[i] = 0;
+    for (j=0; j < NUMBER_OF_VC; j++) {
+      pgpDevice->rxLaneHisto[i][j] = 0;
+    }
   }
   for ( i=0; i < NUMBER_OF_RX_BUFFERS<<1; i++ ) {
     pgpDevice->rxBuffersHisto[i] = 0;
@@ -938,18 +997,18 @@ static int PgpCard_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev
   }
 
   // Init queues
-  for (i=0; i<NUMBER_OF_LANES; i++) {
+  for (i=0; i<NUMBER_OF_LANE_CLIENTS; i++) {
     pgpDevice->rxQueue[i]    = (struct RxBuffer **) vmalloc((NUMBER_OF_RX_CLIENT_BUFFERS) * sizeof(struct RxBuffer *));
     if ( pgpDevice->debug & 1 ) {
       printk(KERN_DEBUG "%s: Probe: rxQ[%u]=%p\n", MOD_NAME, i, (void*)pgpDevice->rxQueue[i]);
     }
     pgpDevice->rxRead[i]  = 0;
     pgpDevice->rxWrite[i] = 0;
-    init_waitqueue_head(&pgpDevice->minor[i].inq);
-    init_waitqueue_head(&pgpDevice->minor[i].outq);
-    pgpDevice->minor[i].mask = 0;
+    init_waitqueue_head(&pgpDevice->client[i].inq);
+    init_waitqueue_head(&pgpDevice->client[i].outq);
+    pgpDevice->client[i].mask = 0;
     if (pgpDevice->debug & 0x40) {
-      printk(KERN_DEBUG "%s: Probe: client %u inq=%p outq=%p\n", MOD_NAME, i, &pgpDevice->minor[i].inq, &pgpDevice->minor[i].outq);
+      printk(KERN_DEBUG "%s: Probe: client %u inq=%p outq=%p\n", MOD_NAME, i, &pgpDevice->client[i].inq, &pgpDevice->client[i].outq);
     }
   }
   // Write scratchpad
@@ -958,6 +1017,18 @@ static int PgpCard_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev
   if (pgpDevice->debug & 0x40) {
     printk(KERN_DEBUG "%s: Probe: sizeof(spinlock_t)=%u\n", MOD_NAME, (unsigned int)(long unsigned int)sizeof(spinlock_t));
   }
+  pgpDevice->rxLock      = vmalloc(sizeof(spinlock_t));
+  pgpDevice->txLock      = vmalloc(sizeof(spinlock_t));
+  pgpDevice->txLockIrq   = vmalloc(sizeof(spinlock_t));
+  pgpDevice->ioctlLock   = vmalloc(sizeof(spinlock_t));
+  pgpDevice->releaseLock = vmalloc(sizeof(spinlock_t));
+  pgpDevice->pollLock    = vmalloc(sizeof(spinlock_t));
+  spin_lock_init(pgpDevice->rxLock);
+  spin_lock_init(pgpDevice->txLock);
+  spin_lock_init(pgpDevice->txLockIrq);
+  spin_lock_init(pgpDevice->ioctlLock);
+  spin_lock_init(pgpDevice->releaseLock);
+  spin_lock_init(pgpDevice->pollLock);
 
   // Enable interrupts
   pgpDevice->reg->irq = 1;
@@ -993,6 +1064,10 @@ static void PgpCard_Remove(struct pci_dev *pcidev) {
     // Clear RX buffer
     pgpDevice->reg->rxMaxFrame = 0;
 
+    if (pgpDevice->status) {
+      vfree(pgpDevice->status);
+    }
+
     // Free TX Buffers
     for ( idx=0; idx < NUMBER_OF_TX_BUFFERS; idx++ ) {
       pci_free_consistent( pcidev,DEF_TX_BUF_SIZE, pgpDevice->txBuffer[idx]->buffer, pgpDevice->txBuffer[idx]->dma);
@@ -1020,13 +1095,16 @@ static void PgpCard_Remove(struct pci_dev *pcidev) {
     if (pgpDevice->rxBuffer) {
       vfree(pgpDevice->rxBuffer);
     }
-    for (i=0; i<NUMBER_OF_LANES; i++) {
+    for (i=0; i<NUMBER_OF_LANE_CLIENTS; i++) {
       if (pgpDevice->rxQueue[i]) {
         vfree(pgpDevice->rxQueue[i]);
       }
     }
     if (pgpDevice->rxLoopHisto) {
       vfree(pgpDevice->rxLoopHisto);
+    }
+    if (pgpDevice->txHistoLV) {
+      vfree(pgpDevice->txHistoLV);
     }
 
     // Set card reset, bit 1 of control register
@@ -1048,7 +1126,7 @@ static void PgpCard_Remove(struct pci_dev *pcidev) {
     // Disable device
     pci_disable_device(pcidev);
     pgpDevice->baseHdwr = 0;
-    printk(KERN_INFO"%s: Remove: Driver is unloaded. Maj=%i\n", MOD_NAME,pgpDevice->major);
+    printk(KERN_INFO"%s: Remove: %s is unloaded. Maj=%i\n", MOD_NAME, PGPCARD_VERSION, pgpDevice->major);
   }
 }
 
@@ -1095,7 +1173,7 @@ unsigned countRXFirmwareBuffers(struct PgpDevice* pgpDevice, __u32 update) {
 unsigned countRxBuffers(struct PgpDevice* pgpDevice, __u32 update) {
   unsigned mi;
   unsigned bcnt = 0;
-  for (mi=0; mi<NUMBER_OF_LANES; mi++) {
+  for (mi=0; mi<NUMBER_OF_LANE_CLIENTS; mi++) {
     if ( pgpDevice->rxRead[mi] > pgpDevice->rxWrite[mi] )
       bcnt += (__u32)((NUMBER_OF_RX_CLIENT_BUFFERS + pgpDevice->rxWrite[mi]) - pgpDevice->rxRead[mi]);
     else {
@@ -1134,15 +1212,16 @@ int PgpCard_Ioctl(struct inode *inode, struct file *filp, __u32 cmd, unsigned lo
 }
 
 int my_Ioctl(struct file *filp, __u32 cmd, __u64 argument) {
-  int i;
+  int i, j;
   unsigned mi;
-  PgpCardStatus  status;
-  PgpCardStatus *stat = &status;
+  PgpCardStatus *stat = 0;
   __u32          tmp;
   __u32          tmp1;
   __u32          mask;
+  __u32          lane;
+  __u32          vcMask;
   unsigned       bfcnt;
-  __u32          read;
+  __u32          read = 0;
   __u32          arg = argument & 0xffffffffLL;
   __u32          txSum = 0;
   __u32          rxSum = 0;
@@ -1151,17 +1230,17 @@ int my_Ioctl(struct file *filp, __u32 cmd, __u64 argument) {
   char           s1[40];
 
   struct PgpDevice *pgpDevice = (struct PgpDevice *)filp->private_data;
-  if (pgpDevice->debug & 2) printk(KERN_DEBUG "%s: entering my_Ioctl, arg(%llu)\n", MOD_NAME, argument);
-
+  /*if (pgpDevice->debug & 2)*/ printk(KERN_DEBUG "%s: entering my_Ioctl, cmd %u, arg(0x%llx)\n", MOD_NAME, cmd, argument);
+  stat = pgpDevice->status;
   // Determine command
-  spin_lock(&(pgpDevice->ioctlLock));
+  spin_lock(pgpDevice->ioctlLock);
   switch ( cmd ) {
 
     // Write scratchpad
     case IOCTL_Write_Scratch:
       pgpDevice->reg->scratch = arg;
       printk(KERN_WARNING "%s: Scratch set to 0x%x\n", MOD_NAME, arg);
-      spin_unlock(&(pgpDevice->ioctlLock));
+      spin_unlock(pgpDevice->ioctlLock);
       return(SUCCESS);
       break;
 
@@ -1169,7 +1248,7 @@ int my_Ioctl(struct file *filp, __u32 cmd, __u64 argument) {
     case IOCTL_Set_Debug:
       pgpDevice->debug = arg;
       printk(KERN_WARNING "%s: debug set to 0x%x\n", MOD_NAME, arg);
-      spin_unlock(&(pgpDevice->ioctlLock));
+      spin_unlock(pgpDevice->ioctlLock);
       return(SUCCESS);
       break;
 
@@ -1186,7 +1265,12 @@ int my_Ioctl(struct file *filp, __u32 cmd, __u64 argument) {
       for ( i=0; i < NUMBER_OF_TX_BUFFERS; i++ ) {
         pgpDevice->txHisto[i] = 0;
       }
-      spin_unlock(&(pgpDevice->ioctlLock));
+      for (i=0; i < NUMBER_OF_LANES; i++) {
+        for (j=0; j < NUMBER_OF_VC; j++) {
+          pgpDevice->txHistoLV[i*NUMBER_OF_VC+j] = 0;
+        }
+      }
+      spin_unlock(pgpDevice->ioctlLock);
       if (pgpDevice->debug & 1) printk(KERN_DEBUG "%s: Count reset\n", MOD_NAME);
       return(SUCCESS);
       break;
@@ -1194,7 +1278,7 @@ int my_Ioctl(struct file *filp, __u32 cmd, __u64 argument) {
       // Set Loopback
     case IOCTL_Set_Loop:
       pgpDevice->reg->control |= ((0x10 << arg) & 0xF0);
-      spin_unlock(&(pgpDevice->ioctlLock));
+      spin_unlock(pgpDevice->ioctlLock);
       if (pgpDevice->debug & 1) printk(KERN_DEBUG "%s: Set loopback for %u\n", MOD_NAME, arg);
       return(SUCCESS);
       break;
@@ -1203,7 +1287,7 @@ int my_Ioctl(struct file *filp, __u32 cmd, __u64 argument) {
     case IOCTL_Clr_Loop:
       mask = 0xFFFFFFFF ^ ((0x10 << arg) & 0xF0);
       pgpDevice->reg->control &= mask;
-      spin_unlock(&(pgpDevice->ioctlLock));
+      spin_unlock(pgpDevice->ioctlLock);
       if (pgpDevice->debug & 1) printk(KERN_DEBUG "%s: Clr loopback for %u\n", MOD_NAME, arg);
       return(SUCCESS);
       break;
@@ -1211,7 +1295,7 @@ int my_Ioctl(struct file *filp, __u32 cmd, __u64 argument) {
       // Set RX reset
     case IOCTL_Set_Rx_Reset:
       pgpDevice->reg->control |= ((0x100 << arg) & 0xF00);
-      spin_unlock(&(pgpDevice->ioctlLock));
+      spin_unlock(pgpDevice->ioctlLock);
       if (pgpDevice->debug & 1) printk(KERN_DEBUG "%s: Rx reset set for %u\n", MOD_NAME, arg);
       return(SUCCESS);
       break;
@@ -1220,7 +1304,7 @@ int my_Ioctl(struct file *filp, __u32 cmd, __u64 argument) {
     case IOCTL_Clr_Rx_Reset:
       mask = 0xFFFFFFFF ^ ((0x100 << arg) & 0xF00);
       pgpDevice->reg->control &= mask;
-      spin_unlock(&(pgpDevice->ioctlLock));
+      spin_unlock(pgpDevice->ioctlLock);
       if (pgpDevice->debug & 1) printk(KERN_DEBUG "%s: Rx reset clr for %u\n", MOD_NAME, arg);
       return(SUCCESS);
       break;
@@ -1228,7 +1312,7 @@ int my_Ioctl(struct file *filp, __u32 cmd, __u64 argument) {
       // Set TX reset
     case IOCTL_Set_Tx_Reset:
       pgpDevice->reg->control |= ((0x1000 << arg) & 0xF000);
-      spin_unlock(&(pgpDevice->ioctlLock));
+      spin_unlock(pgpDevice->ioctlLock);
       if (pgpDevice->debug & 1) printk(KERN_DEBUG "%s: Tx reset set for %u\n", MOD_NAME, arg);
       return(SUCCESS);
       break;
@@ -1237,14 +1321,41 @@ int my_Ioctl(struct file *filp, __u32 cmd, __u64 argument) {
     case IOCTL_Clr_Tx_Reset:
       mask = 0xFFFFFFFF ^ ((0x1000 << arg) & 0xF000);
       pgpDevice->reg->control &= mask;
-      spin_unlock(&(pgpDevice->ioctlLock));
+      spin_unlock(pgpDevice->ioctlLock);
       if (pgpDevice->debug & 1) printk(KERN_DEBUG "%s: Tx reset clr for %u\n", MOD_NAME, arg);
+      return(SUCCESS);
+      break;
+
+    case IOCTL_Set_VC_Mask:
+      i = SUCCESS;
+      lane = arg & 3;
+      vcMask = (arg & 0xf00) >> 8;
+      for (mi=0; mi<NUMBER_OF_LANE_CLIENTS; mi++) {
+        if (pgpDevice->client[mi].mask & (1<<lane)) {
+          if (pgpDevice->client[mi].vcMask & vcMask) {
+            pgpDevice->client[mi].vcMask = vcMask;
+            break;
+          }
+        }
+      }
+      spin_unlock(pgpDevice->ioctlLock);
+      if (mi == NUMBER_OF_LANE_CLIENTS) {
+        printk(KERN_WARNING "%s: IOCTL_Set_VC_Mask unable to find matching client lane %u\n", MOD_NAME, lane);
+        i = ERROR;
+      }
+      if (i != ERROR) printk(KERN_DEBUG "%s: set VC mask for client %u on lane %u to 0x%x\n", MOD_NAME, mi, lane, vcMask);
+      return(i);
+      break;
+
+    case IOCTL_Show_Version:
+      printk(KERN_WARNING "%s: %s\n",  MOD_NAME, PGPCARD_VERSION);
+      spin_unlock(pgpDevice->ioctlLock);
       return(SUCCESS);
       break;
 
       // Status read
     case IOCTL_Read_Status:
-      if (pgpDevice->debug & 1) printk(KERN_DEBUG "%s IOCTL_ReadStatus\n", MOD_NAME);
+      if (pgpDevice->debug & 1) printk(KERN_DEBUG "%s IOCTL_ReadStatus 1\n", MOD_NAME);
 
       // Read Values
       stat->Version = pgpDevice->reg->version;
@@ -1283,8 +1394,10 @@ int my_Ioctl(struct file *filp, __u32 cmd, __u64 argument) {
         stat->PgpLink[i].PgpLinkDownCnt  = (tmp1 >> 12)    & 0xF;
         stat->PgpLink[i].PgpLinkErrCnt   = (tmp1 >> 16)    & 0xF;
         stat->PgpLink[i].PgpFifoErr      = (tmp1 >> 20)    & 0x1;
-        stat->RxWrite[i]                  = pgpDevice->rxWrite[i];
-        stat->RxRead[i]                   = pgpDevice->rxRead[i];
+      }
+      for (i=0; i<NUMBER_OF_LANE_CLIENTS; i++) {
+        stat->RxWrite[i]     = pgpDevice->rxWrite[i];
+        stat->RxRead[i]      = pgpDevice->rxRead[i];
       }
 
       tmp = pgpDevice->reg->txStatus;
@@ -1295,9 +1408,9 @@ int my_Ioctl(struct file *filp, __u32 cmd, __u64 argument) {
       stat->TxReadReady    = (tmp >> 10)&0x1;
       stat->TxRetFifoCount = tmp&0x3FF;
 
+      stat->TxRead         = pgpDevice->txRead;
       stat->TxCount        = pgpDevice->reg->txCount;
       stat->TxBufferCount  = pgpDevice->txBufferCount;
-      stat->TxRead         = pgpDevice->txRead;
 
       tmp = pgpDevice->reg->rxStatus;
       stat->RxFreeEmpty     = (tmp >> 31)&0x1;
@@ -1311,32 +1424,46 @@ int my_Ioctl(struct file *filp, __u32 cmd, __u64 argument) {
       stat->RxBufferCount = pgpDevice->rxBufferCount;
 
       // Copy to user
+     if (pgpDevice->debug & 1)  {
+       printk(KERN_DEBUG "%s IOCTL_ReadStatus copy to user %p, %p, %d\n",
+          MOD_NAME, (__u32*)argument, stat, (unsigned)sizeof(PgpCardStatus));
+     }
       if ((read = copy_to_user((__u32*)argument, stat, sizeof(PgpCardStatus)))) {
         printk(KERN_WARNING "%s: Read Status: failed to copy %u to user. Maj=%i\n",
             MOD_NAME,
             read,
             pgpDevice->major);
-        spin_unlock(&(pgpDevice->ioctlLock));
+        spin_unlock(pgpDevice->ioctlLock);
         return ERROR;
       }
 
-      spin_unlock(&(pgpDevice->ioctlLock));
+      spin_unlock(pgpDevice->ioctlLock);
+      if (pgpDevice->debug & 1) printk(KERN_DEBUG "%s IOCTL_ReadStatus 4\n", MOD_NAME);
       return(SUCCESS);
       break;
 
       // Dump Debug
     case IOCTL_Dump_Debug:
 
-      printk(KERN_DEBUG "%s IOCTL_Dump_Debug\n", MOD_NAME);
+      printk(KERN_DEBUG "%s: IOCTL_Dump_Debug %s\n", MOD_NAME, PGPCARD_VERSION);
+
+      printk(KERN_DEBUG "%s: Ioctl: Open Clients ...\n", MOD_NAME);
+
+      for (i=0; i<MAX_NUMBER_OPEN_CLIENTS; i++) {
+        if (pgpDevice->client[i].fp) {
+          printk(KERN_DEBUG "%s: \t%d: mask(0x%x) vcMask(0x%x)\n",
+              MOD_NAME, i, pgpDevice->client[i].mask, pgpDevice->client[i].vcMask);
+        }
+      }
 
       // Rx Buffers
       printk(KERN_DEBUG"%s: Ioctl: Rx Queue for all lanes contain %i out of %i buffers. Maj=%i.\n",
           MOD_NAME, pgpDevice->rxBufferCount, NUMBER_OF_RX_CLIENT_BUFFERS, pgpDevice->major);
 
       // Rx Firmware Fifo
-      spin_lock_irq(&(pgpDevice->rxLock));
+      spin_lock_irq(pgpDevice->rxLock);
       bfcnt = countRXFirmwareBuffers(pgpDevice, 0);
-      spin_unlock_irq(&(pgpDevice->rxLock));
+      spin_unlock_irq(pgpDevice->rxLock);
       printk(KERN_DEBUG"%s: Ioctl: Rx Firmware Fifo contains %i out of %i buffers. Maj=%i.\n",
           MOD_NAME, bfcnt, NUMBER_OF_RX_BUFFERS, pgpDevice->major);
 
@@ -1414,10 +1541,10 @@ int my_Ioctl(struct file *filp, __u32 cmd, __u64 argument) {
         }
       }
       printk(KERN_DEBUG "%s:pgpDevice->goingDown(%x)\n", MOD_NAME, pgpDevice->goingDown);
-      for ( i=0; i < NUMBER_OF_LANES; i++ ) {
-        if ( pgpDevice->minor[i].fp != 0 ) {
+      for ( i=0; i < NUMBER_OF_LANE_CLIENTS; i++ ) {
+        if ( pgpDevice->client[i].fp != 0 ) {
           printk(KERN_DEBUG "%s:\tClient %u has lanes 0x%x and had to toss %u buffers\n",
-              MOD_NAME, i, pgpDevice->minor[i].mask, pgpDevice->rxTossedBuffers[i]);
+              MOD_NAME, i, pgpDevice->client[i].mask, pgpDevice->rxTossedBuffers[i]);
         }
       }
       printk(KERN_DEBUG"%s: Irq: packet count for device not open in lane order:%8u%8u%8u%8u\n",
@@ -1426,7 +1553,19 @@ int my_Ioctl(struct file *filp, __u32 cmd, __u64 argument) {
       printk(KERN_DEBUG "%s:Total Tossed Buffers %u\n", MOD_NAME, pgpDevice->rxTotalTossedBuffers);
       printk(KERN_DEBUG "%s:Lane Rx Histo:\n", MOD_NAME);
       for ( i=0; i < NUMBER_OF_LANES; i++ ) {
-        printk(KERN_DEBUG "%s:\tLane %u - %9u\n", MOD_NAME, i, pgpDevice->rxLaneHisto[i]);
+        printk(KERN_DEBUG "%s:\tLane %u - %9u %u %u %u\n", MOD_NAME, i,
+            pgpDevice->rxLaneHisto[i][0],
+            pgpDevice->rxLaneHisto[i][1],
+            pgpDevice->rxLaneHisto[i][2],
+            pgpDevice->rxLaneHisto[i][3]);
+      }
+      printk(KERN_DEBUG "%s:Lane Tx Histo:\n", MOD_NAME);
+      for ( i=0; i < NUMBER_OF_LANES; i++) {
+        printk(KERN_DEBUG "%s:\tLane %u - %9u %u %u %u\n", MOD_NAME, i,
+            pgpDevice->txHistoLV[i*NUMBER_OF_VC+0],
+            pgpDevice->txHistoLV[i*NUMBER_OF_VC+1],
+            pgpDevice->txHistoLV[i*NUMBER_OF_VC+2],
+            pgpDevice->txHistoLV[i*NUMBER_OF_VC+3]);
       }
       printk(KERN_DEBUG "%s: IRQ Loop Count Histo:\n", MOD_NAME);
       for ( i=0; i < NUMBER_OF_RX_BUFFERS; i++ ) {
@@ -1435,30 +1574,30 @@ int my_Ioctl(struct file *filp, __u32 cmd, __u64 argument) {
         }
       }
 
-      spin_unlock(&(pgpDevice->ioctlLock));
+      spin_unlock(pgpDevice->ioctlLock);
       return(SUCCESS);
       break;
 
     case IOCTL_Clear_Open_Clients:
       printk(KERN_DEBUG "%s: IOCTL Clearing %u open clients 0x%x\n", MOD_NAME, pgpDevice->openCount-1, pgpDevice->isOpen);
-      for (i=0; i<MAX_NUMBER_OPEN_MINOR_DEVICES; i++) {
-        if (pgpDevice->minor[i].fp  && (pgpDevice->minor[i].fp != filp)) {
-          PgpCard_Release(pgpDevice->minor[i].inode, pgpDevice->minor[i].fp);
+      for (i=0; i<MAX_NUMBER_OPEN_CLIENTS; i++) {
+        if (pgpDevice->client[i].fp  && (pgpDevice->client[i].fp != filp)) {
+          PgpCard_Release(pgpDevice->client[i].inode, pgpDevice->client[i].fp);
         }
       }
-      spin_unlock(&(pgpDevice->ioctlLock));
+      spin_unlock(pgpDevice->ioctlLock);
       return(SUCCESS);
       break;
 
     case IOCTL_Clear_Polling:
       pgpDevice->pollEnabled = 0;
-      spin_unlock(&(pgpDevice->ioctlLock));
+      spin_unlock(pgpDevice->ioctlLock);
       return(SUCCESS);
       break;
 
 
     default:
-      spin_unlock(&(pgpDevice->ioctlLock));
+      spin_unlock(pgpDevice->ioctlLock);
       return(ERROR);
       break;
   }
@@ -1476,7 +1615,7 @@ int dumpWarning(struct PgpDevice *pgpDevice) {
   unsigned       upperLimit = 0;
   char           s1[40];
 
-  spin_lock(&(pgpDevice->ioctlLock));
+  spin_lock(pgpDevice->ioctlLock);
   printk(KERN_WARNING "%s Driver State on closing all clients\n", MOD_NAME);
 
   // Rx Buffers
@@ -1484,9 +1623,9 @@ int dumpWarning(struct PgpDevice *pgpDevice) {
       MOD_NAME, pgpDevice->rxBufferCount, NUMBER_OF_RX_CLIENT_BUFFERS, pgpDevice->major);
 
   // Rx Firmware Fifo
-  spin_lock(&(pgpDevice->rxLock));
+  spin_lock(pgpDevice->rxLock);
   bfcnt = countRXFirmwareBuffers(pgpDevice, 0);
-  spin_unlock(&(pgpDevice->rxLock));
+  spin_unlock(pgpDevice->rxLock);
   printk(KERN_WARNING"%s: Ioctl: Rx Firmware Fifo contains %i out of %i buffers. Maj=%i.\n",
       MOD_NAME, bfcnt, NUMBER_OF_RX_BUFFERS, pgpDevice->major);
 
@@ -1564,10 +1703,10 @@ int dumpWarning(struct PgpDevice *pgpDevice) {
     }
   }
   printk(KERN_WARNING "%s:pgpDevice->goingDown(%x)\n", MOD_NAME, pgpDevice->goingDown);
-  for ( i=0; i < NUMBER_OF_LANES; i++ ) {
-    if ( pgpDevice->minor[i].fp != 0 ) {
+  for ( i=0; i < NUMBER_OF_LANE_CLIENTS; i++ ) {
+    if ( pgpDevice->client[i].fp != 0 ) {
       printk(KERN_WARNING "%s:\tClient %u has lanes 0x%x and had to toss %u buffers\n",
-          MOD_NAME, i, pgpDevice->minor[i].mask, pgpDevice->rxTossedBuffers[i]);
+          MOD_NAME, i, pgpDevice->client[i].mask, pgpDevice->rxTossedBuffers[i]);
     }
   }
   printk(KERN_WARNING"%s: Irq: packet count for device not open in lane order:%8u%8u%8u%8u\n",
@@ -1576,7 +1715,19 @@ int dumpWarning(struct PgpDevice *pgpDevice) {
   printk(KERN_WARNING "%s:Total Tossed Buffers %u\n", MOD_NAME, pgpDevice->rxTotalTossedBuffers);
   printk(KERN_WARNING "%s:Lane Rx Histo:\n", MOD_NAME);
   for ( i=0; i < NUMBER_OF_LANES; i++ ) {
-    printk(KERN_WARNING "%s:\tLane %u - %9u\n", MOD_NAME, i, pgpDevice->rxLaneHisto[i]);
+    printk(KERN_WARNING "%s:\tLane %u - %9u %u %u %u\n", MOD_NAME, i,
+        pgpDevice->rxLaneHisto[i][0],
+        pgpDevice->rxLaneHisto[i][1],
+        pgpDevice->rxLaneHisto[i][2],
+        pgpDevice->rxLaneHisto[i][3]);
+  }
+  printk(KERN_DEBUG "%s:Lane Tx Histo:\n", MOD_NAME);
+  for ( i=0; i < NUMBER_OF_LANES; i++) {
+    printk(KERN_DEBUG "%s:\tLane %u - %9u %u %u %u\n", MOD_NAME, i,
+        pgpDevice->txHistoLV[i*NUMBER_OF_VC+0],
+        pgpDevice->txHistoLV[i*NUMBER_OF_VC+1],
+        pgpDevice->txHistoLV[i*NUMBER_OF_VC+2],
+        pgpDevice->txHistoLV[i*NUMBER_OF_VC+3]);
   }
   printk(KERN_WARNING "%s: IRQ Loop Count Histo:\n", MOD_NAME);
   for ( i=0; i < NUMBER_OF_RX_BUFFERS; i++ ) {
@@ -1585,7 +1736,7 @@ int dumpWarning(struct PgpDevice *pgpDevice) {
     }
   }
 
-  spin_unlock(&(pgpDevice->ioctlLock));
+  spin_unlock(pgpDevice->ioctlLock);
   return(SUCCESS);
 }
 

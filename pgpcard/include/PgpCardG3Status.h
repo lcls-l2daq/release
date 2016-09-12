@@ -92,7 +92,6 @@ typedef struct {
    __u32 TxReadReady;
    __u32 TxRetFifoCount;
    __u32 TxCount;
-   __u32 TxWrite;
    __u32 TxRead;
 
 } PgpCardG3Status;

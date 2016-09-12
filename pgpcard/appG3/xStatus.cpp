@@ -249,7 +249,6 @@ int main (int argc, char **argv) {
   cout << hex << "         TxReadReady: 0x" << setw(1) << setfill('0') << status.TxReadReady << endl;
   cout << "      TxRetFifoCount: 0x" << setw(3) << setfill('0') << status.TxRetFifoCount << endl;
   cout << "             TxCount: 0x" << setw(8) << setfill('0') << status.TxCount << endl;
-  cout << "             TxWrite: 0x" << setw(2) << setfill('0') << status.TxWrite << endl;
   cout << "              TxRead: 0x" << setw(2) << setfill('0') << status.TxRead  << endl;
   cout << endl;
 
@@ -289,6 +288,9 @@ int main (int argc, char **argv) {
   if (write(fd, p, size) < 0) {
     perror("IOCTL_Dump_Debug");
   }
+
+  p->cmd   = IOCTL_Show_Version;
+  write(fd, p, sizeof(PgpCardTx));
 
   close(fd);
 }

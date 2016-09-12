@@ -23,7 +23,8 @@
 #include <asm/spinlock.h>
 
 #define NUMBER_OF_LANES 8
-#define NUMBER_OF_VIRTUAL_CIRCUITS 4
+#define NUMBER_OF_VC 4
+#define MAXIMUM_NUMBER_LANES_PER_CLIENT 2
 
 #include "../include/PgpCardMod.h"
 #include "../include/PgpCardG3Status.h"
@@ -34,10 +35,9 @@
 
 // Number of RX & TX Buffers
 #define NUMBER_OF_RX_BUFFERS 512
-#define MINIMUM_FIRMWARE_BUFFER_COUNT_THRESHOLD 0
-#define MAXIMUM_RX_CLIENT_BUFFERS (NUMBER_OF_RX_BUFFERS-MINIMUM_FIRMWARE_BUFFER_COUNT_THRESHOLD-1)
-#define NUMBER_OF_RX_CLIENT_BUFFERS 768
-#define NUMBER_OF_TX_BUFFERS 64
+//#define MINIMUM_FIRMWARE_BUFFER_COUNT_THRESHOLD 4
+#define NUMBER_OF_RX_CLIENT_BUFFERS ((NUMBER_OF_RX_BUFFERS*MAXIMUM_NUMBER_LANES_PER_CLIENT)/NUMBER_OF_LANES)
+#define NUMBER_OF_TX_BUFFERS 128
 #define DEF_TX_QUEUE_CNT (NUMBER_OF_TX_BUFFERS)
 
 // PCI IDs
@@ -51,12 +51,13 @@
 
 // Module Name
 #define MOD_NAME "pgpcardG3"
-#define PGPCARD_VERSION "pgpcardG3 driver v02.01.04"
+#define PGPCARD_VERSION "pgpcardG3 driver v02.02.02"
 
-// Number of minor devices =  number of lanes plus one for the back channel
-//   for multiple port devices we may open an add next port IOCTL command.
+//   for multiple port devices we now have an add next port IOCTL command.
 #define NUMBER_OF_MINOR_DEVICES (NUMBER_OF_LANES + 1) 
 #define ALL_LANES_MASK ((1<<NUMBER_OF_LANES)-1)
+#define NUMBER_OF_LANE_CLIENTS (NUMBER_OF_LANES*2)
+#define MAX_NUMBER_OPEN_CLIENTS (NUMBER_OF_LANE_CLIENTS + 1) // One for the back door
 
 enum MODELS {SmallMemoryModel=4, LargeMemoryModel=8};
 
@@ -81,24 +82,24 @@ struct PgpCardG3Reg {
    __u32 pgpCardStat[2];// Software_Addr = 0x084:0x080,  Firmware_Addr(13 downto 2) = 0x021:0x020
     __u32 pgpSpare0[54]; // Software_Addr = 0x15C:0x088,  Firmware_Addr(13 downto 2) = 0x057:0x022
 
-    __u32 fiducials[8]; // Software_Addr = 0x17C:0x160,  Firmware_Addr(13 downto 2) = 0x05F:0x058
-    __u32 runCode[8];   // Software_Addr = 0x19C:0x180,  Firmware_Addr(13 downto 2) = 0x067:0x060
-    __u32 acceptCode[8];// Software_Addr = 0x1BC:0x1A0,  Firmware_Addr(13 downto 2) = 0x06F:0x068
+    __u32 fiducials[NUMBER_OF_LANES]; // Software_Addr = 0x17C:0x160,  Firmware_Addr(13 downto 2) = 0x05F:0x058
+    __u32 runCode[NUMBER_OF_LANES];   // Software_Addr = 0x19C:0x180,  Firmware_Addr(13 downto 2) = 0x067:0x060
+    __u32 acceptCode[NUMBER_OF_LANES];// Software_Addr = 0x1BC:0x1A0,  Firmware_Addr(13 downto 2) = 0x06F:0x068
 
-    __u32 runDelay[8];   // Software_Addr = 0x1DC:0x1C0,  Firmware_Addr(13 downto 2) = 0x077:0x070
-    __u32 acceptDelay[8];// Software_Addr = 0x1FC:0x1E0,  Firmware_Addr(13 downto 2) = 0x07F:0x078
+    __u32 runDelay[NUMBER_OF_LANES];   // Software_Addr = 0x1DC:0x1C0,  Firmware_Addr(13 downto 2) = 0x077:0x070
+    __u32 acceptDelay[NUMBER_OF_LANES];// Software_Addr = 0x1FC:0x1E0,  Firmware_Addr(13 downto 2) = 0x07F:0x078
 
-    __u32 pgpLaneStat[8];// Software_Addr = 0x21C:0x200,  Firmware_Addr(13 downto 2) = 0x087:0x080
-    __u32 evrRunCodeCount[8]; // Software_Addr = 0x23C:0x220, Firmware_Addr ????
-    __u32 LutDropCnt[8]; // Software_addr = ox25C:0x240, Firmware_addr ????
-    __u32 AcceptCnt[8]; // Software addr = 0x27C:0x260, Firmware_addr ????
+    __u32 pgpLaneStat[NUMBER_OF_LANES];// Software_Addr = 0x21C:0x200,  Firmware_Addr(13 downto 2) = 0x087:0x080
+    __u32 evrRunCodeCount[NUMBER_OF_LANES]; // Software_Addr = 0x23C:0x220, Firmware_Addr ????
+    __u32 LutDropCnt[NUMBER_OF_LANES]; // Software_addr = ox25C:0x240, Firmware_addr ????
+    __u32 AcceptCnt[NUMBER_OF_LANES]; // Software addr = 0x27C:0x260, Firmware_addr ????
     __u32 pgpSpare1[32]; // Software_Addr = 0x2FC:0x280,  Firmware_Addr(13 downto 2) = 0x0BF:0x088
     __u32 BuildStamp[64];// Software_Addr = 0x3FC:0x300,  Firmware_Addr(13 downto 2) = 0x0FF:0x0C0
 
     //PciRxDesc.vhd
-    __u32 rxFree[8];     // Software_Addr = 0x41C:0x400,  Firmware_Addr(13 downto 2) = 0x107:0x100
+    __u32 rxFree[NUMBER_OF_LANES];     // Software_Addr = 0x41C:0x400,  Firmware_Addr(13 downto 2) = 0x107:0x100
     __u32 rxSpare0[24];  // Software_Addr = 0x47C:0x420,  Firmware_Addr(13 downto 2) = 0x11F:0x108
-    __u32 rxFreeStat[8]; // Software_Addr = 0x49C:0x480,  Firmware_Addr(13 downto 2) = 0x127:0x120
+    __u32 rxFreeStat[NUMBER_OF_LANES]; // Software_Addr = 0x49C:0x480,  Firmware_Addr(13 downto 2) = 0x127:0x120
     __u32 rxSpare1[24];  // Software_Addr = 0x4FC:0x4A0,  Firmware_Addr(13 downto 2) = 0x13F:0x128
     __u32 rxMaxFrame;    // Software_Addr = 0x500,        Firmware_Addr(13 downto 2) = 0x140
     __u32 rxCount;       // Software_Addr = 0x504,        Firmware_Addr(13 downto 2) = 0x141
@@ -138,9 +139,10 @@ struct RxBuffer {
    __u32       length;
 };
 
-// Minor structure
-struct Minor {
+// Client structure
+struct Client {
     __u32             mask;
+    __u32             vcMask;
     struct file*      fp;
     struct inode*     inode;
     // Queues
@@ -158,13 +160,13 @@ struct PgpDevice {
 
    // Device structure
    int          major;
-   struct Minor minor[NUMBER_OF_MINOR_DEVICES];
+   struct Client client[MAX_NUMBER_OPEN_CLIENTS];
    struct cdev  cdev;
 
    // Async queue
    struct fasync_struct *async_queue;
 
-   __u32 isOpen;    // minor device ports open mask
+   __u32 isOpen;    // lanes open mask
    __u32 openCount;
 
    // Debug flag
@@ -175,35 +177,37 @@ struct PgpDevice {
 
    // Top pointer for rx queue
    struct RxBuffer** rxBuffer;
-   struct RxBuffer** rxQueue[NUMBER_OF_LANES];
-   __u32            rxRead[NUMBER_OF_LANES];
-   __u32            rxWrite[NUMBER_OF_LANES];
+   struct RxBuffer** rxQueue[NUMBER_OF_LANE_CLIENTS];
+   __u32            rxRead[NUMBER_OF_LANE_CLIENTS];
+   __u32            rxWrite[NUMBER_OF_LANE_CLIENTS];
    __u32            rxBufferCount;
    __u32*           rxHisto;
    __u32*           rxLoopHisto;
-   __u32            rxLaneHisto[NUMBER_OF_LANES];
-   __u32            rxBuffersHisto[NUMBER_OF_RX_BUFFERS<<1];
+   __u32            rxLaneHisto[NUMBER_OF_LANE_CLIENTS][NUMBER_OF_VC];
+   __u32*           rxBuffersHisto;
    __u32            rxCopyToUserPrintCount;
-   __u32            rxTossedBuffers[NUMBER_OF_LANES];
+   __u32            rxTossedBuffers[NUMBER_OF_LANE_CLIENTS];
    __u32            rxTotalTossedBuffers;
 
    // Top pointer for tx queue
    __u32             txBufferCount;
    struct TxBuffer** txBuffer;
    __u32             txRead;
-   spinlock_t        txLock;
-   spinlock_t        txLockIrq;
-   spinlock_t        rxLock;
-   spinlock_t        readLock[NUMBER_OF_LANES];
-   spinlock_t        ioctlLock;
-   spinlock_t        releaseLock;
-   spinlock_t        pollLock;
+   spinlock_t*       txLock;
+   spinlock_t*       txLockIrq;
+   spinlock_t*       rxLock;
+   spinlock_t*       readLock;
+   spinlock_t*       ioctlLock;
+   spinlock_t*       releaseLock;
+   spinlock_t*       pollLock;
    __u32             goingDown;
    __u32             pollEnabled;
    __u32*            txHisto;
+   __u32*            txHistoLV;
    __u32             interruptNesting;
    __u32             noClientPacketCount[NUMBER_OF_LANES];
    __u32             noClientPacketMax;
+   PgpCardG3Status*  status;
 };
 
 // TX32 Structure

@@ -53,7 +53,7 @@
 #define IOCTL_Evr_AcceptCode         25
 #define IOCTL_Evr_AcceptDelay        26
 #define IOCTL_Evr_En_Hdr_Check       27
-// Read Status, Pass PgpG3CardStatus as arg
+// Read Status, Pass PgpG3CardStatus pointer as arg
 #define IOCTL_Read_Status            28
 // Dump debug
 #define IOCTL_Dump_Debug             29
@@ -61,5 +61,7 @@
 #define IOCTL_Clear_Polling          31
 #define IOCTL_ClearFrameCounter      32
 #define IOCTL_Add_More_Ports         33
-#define IOCTL_End_Of_List            34
+#define IOCTL_Set_VC_Mask            34
+#define IOCTL_Show_Version           35
+#define IOCTL_End_Of_List            36
 #endif

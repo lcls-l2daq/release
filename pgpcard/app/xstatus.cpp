@@ -12,6 +12,7 @@
 #include "../include/PgpCardMod.h"
 #include "../include/PgpCardStatus.h"
 #define NUMBER_OF_LANES 4
+#define NUMBER_OF_LANE_CLIENTS 8
 using namespace std;
 
 int main (int argc, char **argv) {
@@ -38,6 +39,7 @@ int main (int argc, char **argv) {
    p->model = sizeof(p);
    p->cmd   = IOCTL_Read_Status;
    p->data  = (__u32*)&status;
+   printf("xstatus now reading status %p %u\n", &status, (unsigned)sizeof(status));
    ret = write(fd, p, sizeof(PgpCardTx));
 
    cout << "PGP Card Status:      0 1 2 3 <-- Lane order" << endl;
@@ -120,19 +122,26 @@ int main (int argc, char **argv) {
    cout << "     RxRetFifoCount: " << hex << setw(3) << setfill('0') << status.RxRetFifoCount << endl;
    cout << "            RxCount: " << hex << setw(8) << setfill('0') << status.RxCount << endl;
    cout << "      RxBufferCount: " << hex << setw(2) << setfill('0') << status.RxBufferCount << endl << "    RxWrite[client]: " ;
-   for (i=0; i<NUMBER_OF_LANES; i++ ) {
+   for (i=0; i<NUMBER_OF_LANE_CLIENTS; i++ ) {
      cout << hex << setw(2) << status.RxWrite[i] << " ";
    }
    cout << endl << "     RxRead[client]: ";
-   for (i=0; i<NUMBER_OF_LANES; i++ ) {
+   for (i=0; i<NUMBER_OF_LANE_CLIENTS; i++ ) {
      cout << hex << setw(2) << status.RxRead[i] << " ";
    }
    cout << endl;
    cout << endl;
 
+   printf("xstatus now dumping debug %p\n", &status);
+
    p->model = sizeof(p);
    p->cmd   = IOCTL_Dump_Debug;
    p->data  = (__u32*)0;
+   write(fd, p, sizeof(PgpCardTx));
+
+   printf("xstatus now finished dumping debug, showing version\n");
+
+   p->cmd   = IOCTL_Show_Version;
    write(fd, p, sizeof(PgpCardTx));
 
    close(fd);

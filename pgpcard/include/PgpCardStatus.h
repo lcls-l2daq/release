@@ -73,8 +73,8 @@ typedef struct {
    __u32 RxRetFifoCount;
    __u32 RxCount;
    __u32 RxBufferCount;
-   __u32 RxWrite[4];
-   __u32 RxRead[4];
+   __u32 RxWrite[8];
+   __u32 RxRead[8];
 
 } PgpCardStatus;
 
