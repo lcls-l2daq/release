@@ -1,3 +1,12 @@
+//////////////////////////////////////////////////////////////////////////////
+// This file is part of 'SLAC PGP Gen3 Card'.
+// It is subject to the license terms in the LICENSE.txt file found in the 
+// top-level directory of this distribution and at: 
+//    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html. 
+// No part of 'SLAC PGP Gen3 Card', including this file, 
+// may be copied, modified, propagated, or distributed except according to 
+// the terms contained in the LICENSE.txt file.
+//////////////////////////////////////////////////////////////////////////////
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/mman.h>
@@ -21,7 +30,6 @@ int main (int argc, char **argv) {
 
    int fd;
    void volatile *mapStart;
-   void volatile *reboot;
    PgpCardG3Prom *prom;
    string filePath;
    string devName = "/dev/PgpCardG3_0";
@@ -51,9 +59,6 @@ int main (int argc, char **argv) {
       close(fd);
       return(1);   
    }
-   
-   // Mapping the reboot register
-   reboot = (void volatile *)((uint64_t)mapStart+0x01C);
    
    // Create the PgpCardG3Prom object
    prom = new PgpCardG3Prom(mapStart,filePath);
@@ -94,9 +99,6 @@ int main (int argc, char **argv) {
       
    // Display Reminder
    prom->rebootReminder();
-
-   // Start the FPGA's 1 second reboot timer
-   *((__u32*)reboot) = 0xBABECAFE;   
    
 	// Close all the devices
    delete prom;

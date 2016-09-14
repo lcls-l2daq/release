@@ -469,13 +469,15 @@ ssize_t PgpCardG3_Read(struct file *filp, char *buffer, size_t count, loff_t *f_
   if (pgpDevice->rxQueue[mi][pgpDevice->rxRead[mi]]->eofe |
       pgpDevice->rxQueue[mi][pgpDevice->rxRead[mi]]->fifoError |
       pgpDevice->rxQueue[mi][pgpDevice->rxRead[mi]]->lengthError) {
-    printk(KERN_WARNING "%s: Read: error encountered  eofe(%u), fifoError(%u), lengthError(%u) lane(%u) vc(%u)\n",
+    if (pgpDevice->eofeMesgCount++ < 64) {
+      printk(KERN_WARNING "%s: Read: error encountered  eofe(%u), fifoError(%u), lengthError(%u) lane(%u) vc(%u)\n",
         MOD_NAME,
         pgpDevice->rxQueue[mi][pgpDevice->rxRead[mi]]->eofe,
         pgpDevice->rxQueue[mi][pgpDevice->rxRead[mi]]->fifoError,
         pgpDevice->rxQueue[mi][pgpDevice->rxRead[mi]]->lengthError,
         pgpDevice->rxQueue[mi][pgpDevice->rxRead[mi]]->lane,
         pgpDevice->rxQueue[mi][pgpDevice->rxRead[mi]]->vc);
+    }
   }
 
   if ( pgpDevice->debug & 2 ) {
@@ -493,8 +495,8 @@ ssize_t PgpCardG3_Read(struct file *filp, char *buffer, size_t count, loff_t *f_
 
   // Copy to user
   if ( (i=copy_to_user(dp, pgpDevice->rxQueue[mi][pgpDevice->rxRead[mi]]->buffer, copyLength*sizeof(__u32))) ) {
-    if (pgpDevice->rxCopyToUserPrintCount++ < 12) printk(KERN_WARNING"%s: Read: failed to copy %d out of %u to user at %p Maj=%i\n",
-        MOD_NAME, i, (unsigned int)(copyLength*sizeof(__u32)), dp, pgpDevice->major);
+    if (pgpDevice->rxCopyToUserPrintCount++ < 12) printk(KERN_WARNING"%s: Read: failed to copy %d out of %u to user at %p Maj=%i client=%u\n",
+        MOD_NAME, i, (unsigned int)(copyLength*sizeof(__u32)), dp, pgpDevice->major, mi);
     ret =  ERROR;
   }
   else {
@@ -568,7 +570,7 @@ static irqreturn_t PgpCardG3_IRQHandler(int irq, void *dev_id, struct pt_regs *r
   __u32        next;
   __u32        lane;
   __u32        vc;
-//  __u32        bfcnt;
+  __u32        tossIt;
   __u32        i;
   __u32        mi;  // minor index into open client list
   __u32        rxLoopCount;
@@ -577,6 +579,7 @@ static irqreturn_t PgpCardG3_IRQHandler(int irq, void *dev_id, struct pt_regs *r
   struct PgpDevice *pgpDevice = (struct PgpDevice *)dev_id;
   // Read IRQ Status
   stat = pgpDevice->reg->irq;
+  tossIt = 0;
 
   // Is this the source
   if ( (stat & 0x2) != 0 ) {
@@ -703,23 +706,26 @@ static irqreturn_t PgpCardG3_IRQHandler(int irq, void *dev_id, struct pt_regs *r
                     if ((pgpDevice->goingDown & pgpDevice->client[mi].mask)  == 0) {
                       wake_up_interruptible(&(pgpDevice->client[mi].inq));
                     } else {
-                      printk(KERN_WARNING "%s: Irq: not waking, going down 0x%x mask=0x%x mi=%u\n",
-                          MOD_NAME, pgpDevice->goingDown, pgpDevice->client[mi].mask, mi);
+//                      printk(KERN_WARNING "%s: Irq: not waking, going down 0x%x mask=0x%x mi=%u\n",
+//                          MOD_NAME, pgpDevice->goingDown, pgpDevice->client[mi].mask, mi);
                       pgpDevice->rxTossedBuffers[mi] += 1;
                       pgpDevice->rxTotalTossedBuffers += 1;
-                      pgpDevice->reg->rxFree[lane] = (descB & 0xFFFFFFFC);
+//                      pgpDevice->reg->rxFree[lane] = (descB & 0xFFFFFFFC);
+                      tossIt += 1;
                     }
                   } else {
                     printk(KERN_WARNING "%s: Irq: poll queue zero!! mi=%u\n", MOD_NAME, mi);
                     pgpDevice->rxTossedBuffers[mi] += 1;
                     pgpDevice->rxTotalTossedBuffers += 1;
-                    pgpDevice->reg->rxFree[lane] = (descB & 0xFFFFFFFC);
+//                    pgpDevice->reg->rxFree[lane] = (descB & 0xFFFFFFFC);
+                    tossIt += 1;
                   }
                 } else {
                   printk(KERN_WARNING "%s: Irq: rxQ[%u] is ZERO!\n", MOD_NAME, mi);
                   pgpDevice->rxTossedBuffers[mi] += 1;
                   pgpDevice->rxTotalTossedBuffers += 1;
-                  pgpDevice->reg->rxFree[lane] = (descB & 0xFFFFFFFC);
+//                  pgpDevice->reg->rxFree[lane] = (descB & 0xFFFFFFFC);
+                  tossIt += 1;
                 }
               }
             } else {
@@ -732,11 +738,19 @@ static irqreturn_t PgpCardG3_IRQHandler(int irq, void *dev_id, struct pt_regs *r
                     pgpDevice->noClientPacketCount[2],pgpDevice->noClientPacketCount[3],pgpDevice->noClientPacketCount[4],
                     pgpDevice->noClientPacketCount[5],pgpDevice->noClientPacketCount[6],pgpDevice->noClientPacketCount[7]);
               }
-              pgpDevice->reg->rxFree[lane] = (descB & 0xFFFFFFFC);
+//              pgpDevice->reg->rxFree[lane] = (descB & 0xFFFFFFFC);
+              tossIt += 1;
             }
           } else {
             printk(KERN_WARNING "%s: Irq: Failed to locate RX descriptor %.8x. Maj=%i\n",MOD_NAME,(__u32)(descA&0xFFFFFFFC),pgpDevice->major);
+//            pgpDevice->reg->rxFree[lane] = (descB & 0xFFFFFFFC);
+            tossIt += 1;
+          }
+          if (tossIt != 0) {
             pgpDevice->reg->rxFree[lane] = (descB & 0xFFFFFFFC);
+            if (tossIt > 1) {
+              printk(KERN_WARNING "%s: Irq: would have tossed %u times. Maj=%i\n",MOD_NAME,tossIt,pgpDevice->major);
+            }
           }
         }
         // Repeat while next valid flag is set
@@ -872,6 +886,8 @@ static int PgpCardG3_Probe(struct pci_dev *pcidev, const struct pci_device_id *d
   pgpDevice->debug         = 0;
   pgpDevice->rxTotalTossedBuffers = 0;
   pgpDevice->rxCopyToUserPrintCount = 0;
+  pgpDevice->cfrbmesgCount = 0;
+  pgpDevice->eofeMesgCount = 0;
 
   pgpDevice->status = (PgpCardG3Status*) vmalloc(sizeof(PgpCardG3Status));
 
@@ -1148,7 +1164,6 @@ unsigned countRXFirmwareBuffers(struct PgpDevice* pgpDevice, __u32 update) {
   unsigned hbcnt = 0;
   unsigned tmp;
   unsigned i;
-  char s[128] = "";
   for (i=0; i<NUMBER_OF_LANES; i++) {
     tmp = pgpDevice->reg->rxFreeStat[i];
     hbcnt += tmp & 0x3ff;
@@ -1156,13 +1171,17 @@ unsigned countRXFirmwareBuffers(struct PgpDevice* pgpDevice, __u32 update) {
   }
   tmp = pgpDevice->reg->rxStatus;
   if ( (tmp >> 31)&0x1 ) hbcnt++;
-  if (hbcnt > (NUMBER_OF_RX_BUFFERS+1)) {
-    printk(KERN_INFO"%s: countRXFirmwareBuffers: ", MOD_NAME);
-    for (i=0; i<NUMBER_OF_LANES; i++) {
-      sprintf(s+(9*i), "%u: %2u, ", i, pgpDevice->reg->rxFreeStat[i] & 0x3ff);
-//      printk(KERN_INFO"%u: %u, ", i, pgpDevice->reg->rxFreeStat[i] & 0x3ff);
-    }
-    printk(KERN_INFO"%s\n", s);
+  if ((hbcnt > (NUMBER_OF_RX_BUFFERS+1)) && (pgpDevice->cfrbmesgCount++ < 256)) {
+    printk(KERN_INFO"%s: countRXFirmwareBuffers: hbcnt(%u), %u, %u, %u, %u, %u, %u, %u, %u\n",
+        MOD_NAME, hbcnt,
+        pgpDevice->reg->rxFreeStat[0] & 0x3ff,
+        pgpDevice->reg->rxFreeStat[1] & 0x3ff,
+        pgpDevice->reg->rxFreeStat[2] & 0x3ff,
+        pgpDevice->reg->rxFreeStat[3] & 0x3ff,
+        pgpDevice->reg->rxFreeStat[4] & 0x3ff,
+        pgpDevice->reg->rxFreeStat[5] & 0x3ff,
+        pgpDevice->reg->rxFreeStat[6] & 0x3ff,
+        pgpDevice->reg->rxFreeStat[7] & 0x3ff);
   }
   if (update) {
     if ((hbcnt) < NUMBER_OF_RX_BUFFERS<<1) {
