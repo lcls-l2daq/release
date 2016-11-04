@@ -35,6 +35,7 @@
 
 // Number of RX & TX Buffers
 #define NUMBER_OF_RX_BUFFERS 512
+//#define NUMBER_OF_RX_BUFFERS 32
 //#define MINIMUM_FIRMWARE_BUFFER_COUNT_THRESHOLD 4
 #define NUMBER_OF_RX_CLIENT_BUFFERS ((NUMBER_OF_RX_BUFFERS*MAXIMUM_NUMBER_LANES_PER_CLIENT)/NUMBER_OF_LANES)
 #define NUMBER_OF_TX_BUFFERS 128
@@ -51,14 +52,14 @@
 
 // Module Name
 #define MOD_NAME "pgpcardG3"
-#define PGPCARD_VERSION "pgpcardG3 driver v02.02.03"
+#define PGPCARD_VERSION "pgpcardG3 driver v02.02.09"
 
 //   for multiple port devices we now have an add next port IOCTL command.
 #define NUMBER_OF_MINOR_DEVICES (NUMBER_OF_LANES + 1) 
 #define ALL_LANES_MASK ((1<<NUMBER_OF_LANES)-1)
 #define NUMBER_OF_LANE_CLIENTS (NUMBER_OF_LANES*2)
 #define MAX_NUMBER_OPEN_CLIENTS (NUMBER_OF_LANE_CLIENTS + 1) // One for the back door
-
+#define NOT_INTIALIZED 0xffffff
 enum MODELS {SmallMemoryModel=4, LargeMemoryModel=8};
 
 // Address Map, offset from base
@@ -70,7 +71,9 @@ struct PgpCardG3Reg {
     __u32 cardRstStat;   // Software_Addr = 0x010,        Firmware_Addr(13 downto 2) = 0x004
     __u32 irq;           // Software_Addr = 0x014,        Firmware_Addr(13 downto 2) = 0x005
     __u32 pgpRate;       // Software_Addr = 0x018,        Firmware_Addr(13 downto 2) = 0x006
-    __u32 sysSpare0[4];  // Software_Addr = 0x028:0x01C,  Firmware_Addr(13 downto 2) = 0x00A:0x007
+    __u32 sysSpare0[2];  // Software_Addr = 0x020:0x01C,  Firmware_Addr(13 downto 2) = 0x008:0x007
+    __u32 txLocPause;    // Software_Addr = 0x024,        Firmware_Addr(13 downto 2) = 0x009
+    __u32 txLocOvrFlow;  // Software_Addr = 0x028,        Firmware_Addr(13 downto 2) = 0x00A
     __u32 pciStat[4];    // Software_Addr = 0x038:0x02C,  Firmware_Addr(13 downto 2) = 0x00E:0x00B
     __u32 sysSpare1;     // Software_Addr = 0x03C,        Firmware_Addr(13 downto 2) = 0x00F
 
@@ -137,6 +140,7 @@ struct RxBuffer {
    __u32       lane;
    __u32       vc;
    __u32       length;
+   __u32       index;
 };
 
 // Client structure
@@ -145,6 +149,7 @@ struct Client {
     __u32             vcMask;
     struct file*      fp;
     struct inode*     inode;
+    __u32             shared;
     // Queues
     wait_queue_head_t inq;
     wait_queue_head_t outq;
@@ -209,6 +214,8 @@ struct PgpDevice {
    __u32             noClientPacketMax;
    __u32             cfrbmesgCount;
    __u32             eofeMesgCount;
+   __u32             laneIndexes[NUMBER_OF_LANES];
+   __u32             orderMessageCount;
    PgpCardG3Status*  status;
 };
 

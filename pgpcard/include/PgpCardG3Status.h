@@ -2,7 +2,7 @@
 // Title         : Kernel Module For PGP To PCI Bridge Card Status
 // Project       : PGP To PCI-E Bridge Card
 //---------------------------------------------------------------------------------
-// File          : PgpCardG3Mod.h
+// File          : PgpCardG3Status.h
 // Author        : jackp
 // Created       : Wed Jan  6 09:49:47 PST 2016
 //---------------------------------------------------------------------------------
