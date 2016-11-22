@@ -33,6 +33,8 @@ picam_use      := /reg/g/pcds/package/external/picam-2.6.1
 gsl_use        := /reg/g/pcds/package/external/gsl-1.13
 boost_use      := /reg/common/package/boost/1.49.0-python2.7/x86_64-rhel5-gcc41-opt/
 ndarray_use    := /reg/common/package/ndarray/1.1.3/x86_64-rhel5-gcc41-opt
+hdf5_use       := /reg/common/package/hdf5/1.8.17
+szip_use       := /reg/common/package/szip/2.1
 psalg_use      := /reg/common/package/psalg/1.0.9
 pdsdata_use    := /reg/common/package/pdsdata/8.6.18
 #pdsdata_use    := /reg/common/package/pdsdata/beammon
@@ -49,6 +51,12 @@ boost_use_include    := $(boost_use)/include
 boost_use_lib_x86_64 := $(boose_use)/lib
 
 ndarray_use_include := $(ndarray_use)
+
+hdf5_use_include    := $(hdf5_use)/linux-x86_64/include
+hdf5_use_lib_x86_64	:= $(hdf5_use)/linux-x86_64/lib
+
+szip_use_include    := $(szip_use)/x86_64-rhel5-gcc41-opt/include
+szip_use_lib_x86_64	:= $(szip_use)/x86_64-rhel5-gcc41-opt/lib
 
 psalg_use_include:= $(psalg_use)/x86_64-linux-opt
 psalg_use_i386   := $(psalg_use)/i386-linux
@@ -74,6 +82,8 @@ projects += \
       pdsdata \
       boost \
       ndarray \
+      hdf5 \
+      szip \
       qwt \
       psalg \
       python
