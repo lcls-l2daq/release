@@ -36,7 +36,7 @@ ndarray_use    := /reg/common/package/ndarray/1.1.3/x86_64-rhel5-gcc41-opt
 hdf5_use       := /reg/common/package/hdf5/1.8.17
 szip_use       := /reg/common/package/szip/2.1
 psalg_use      := /reg/common/package/psalg/1.0.9
-pdsdata_use    := /reg/common/package/pdsdata/8.6.18
+pdsdata_use    := /reg/common/package/pdsdata/8.6.19
 #pdsdata_use    := /reg/common/package/pdsdata/beammon
 
 #
