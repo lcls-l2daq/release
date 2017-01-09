@@ -60,7 +60,7 @@ psalg_use_x86_64 := $(psalg_use)/x86_64-linux
 
 pdsdata_use_include:= $(pdsdata_use)/i386-linux-opt
 pdsdata_use_i386   := $(pdsdata_use)/i386-linux
-pdsdata_use_x86_64 := $(pdsdata_use)/x86_64-linux
+pdsdata_use_x86_64 := $(pdsdata_use)/x86_64-rhel7
 
 projects :=
 
