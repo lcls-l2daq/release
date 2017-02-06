@@ -64,6 +64,7 @@ typedef struct {
    __u32 EvrEnable;
    __u32 EvrReady;
    __u32 EvrReset;
+   __u32 EvrRunMask;
    __u32 EvrLaneStatus;
    __u32 EvrLaneEnable;
    __u32 EvrLaneMode;

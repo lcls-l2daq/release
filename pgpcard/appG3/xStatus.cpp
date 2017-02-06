@@ -198,6 +198,12 @@ int main (int argc, char **argv) {
   }
 
 
+  cout << "       EvrRunMask[0:7]:  ";
+  for(x=0;x<8;x++){
+    cout << dec << setw(1) << setfill('0') << ((status.EvrRunMask>>x)&1);
+    if (x==7) cout << endl; else cout << ", ";
+  }
+
   cout << "       EvrLaneMode[0:7]: ";
   for(x=0;x<8;x++){
     cout << dec << setw(1) << setfill('0') << ((status.EvrLaneMode>>x)&1);

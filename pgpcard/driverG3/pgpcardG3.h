@@ -52,7 +52,7 @@
 
 // Module Name
 #define MOD_NAME "pgpcardG3"
-#define PGPCARD_VERSION "pgpcardG3 driver v02.02.09"
+#define PGPCARD_VERSION "pgpcardG3 driver v02.02.12"
 
 //   for multiple port devices we now have an add next port IOCTL command.
 #define NUMBER_OF_MINOR_DEVICES (NUMBER_OF_LANES + 1) 
@@ -209,6 +209,8 @@ struct PgpDevice {
    __u32             pollEnabled;
    __u32*            txHisto;
    __u32*            txHistoLV;
+   __u32*            txLocPauseHisto;
+   __u32*            txLocOvrFlowHisto;
    __u32             interruptNesting;
    __u32             noClientPacketCount[NUMBER_OF_LANES];
    __u32             noClientPacketMax;

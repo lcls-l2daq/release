@@ -79,6 +79,8 @@ int PgpCardG3_Open(struct inode *inode, struct file *filp) {
       if (pgpDevice->client[mi].fp == 0) break;
     }
     if (mi<MAX_NUMBER_OPEN_CLIENTS) {
+      pgpDevice->reg->evrCardStat[0] |= ((requestedMinor & ALL_LANES_MASK)<<16);
+      pgpDevice->reg->evrCardStat[0] |= ((requestedMinor & ALL_LANES_MASK)<<8);
       pgpDevice->isOpen |= (requestedMinor & ALL_LANES_MASK);
       pgpDevice->client[mi].mask = (__u32)requestedMinor & ALL_LANES_MASK;
       pgpDevice->client[mi].vcMask = 0;
@@ -146,7 +148,7 @@ int PgpCardG3_Release(struct inode *inode, struct file *filp) {
       }
       found = 1;
       for (i=0; i<NUMBER_OF_LANES; i++) {
-        if (pgpDevice->client[mi].mask & (i<<i)) {
+        if (pgpDevice->client[mi].mask & (1<<i)) {
           pgpDevice->laneIndexes[i] = NOT_INTIALIZED;
         }
       }
@@ -502,8 +504,8 @@ ssize_t PgpCardG3_Read(struct file *filp, char *buffer, size_t count, loff_t *f_
   }
   else copyLength = pgpDevice->rxQueue[mi][pgpDevice->rxRead[mi]]->length;
 
-  // Copy to user
-  if ( (i=copy_to_user(dp, pgpDevice->rxQueue[mi][pgpDevice->rxRead[mi]]->buffer, copyLength*sizeof(__u32))) ) {
+  // Copy to user                                                                 ( uncomment to change to short copy2user  )
+  if ( (i=copy_to_user(dp, pgpDevice->rxQueue[mi][pgpDevice->rxRead[mi]]->buffer, (copyLength/* < 512 ? copyLength : 512*/)*sizeof(__u32))) ) {
     if (pgpDevice->rxCopyToUserPrintCount++ < 12) printk(KERN_WARNING"%s: Read: failed to copy %d out of %u to user at %p Maj=%i client=%u\n",
         MOD_NAME, i, (unsigned int)(copyLength*sizeof(__u32)), dp, pgpDevice->major, mi);
     ret =  ERROR;
@@ -581,6 +583,7 @@ static irqreturn_t PgpCardG3_IRQHandler(int irq, void *dev_id, struct pt_regs *r
   __u32        vc;
   __u32        tossIt;
   __u32        i;
+  __u32        j;
   __u32        mi;  // minor index into open client list
   __u32        rxLoopCount;
   __u32        takeItBack;
@@ -621,7 +624,26 @@ static irqreturn_t PgpCardG3_IRQHandler(int irq, void *dev_id, struct pt_regs *r
           }
           // Entry was found
 
+          // Histo to see if it ever goes high
           if ( idx < NUMBER_OF_TX_BUFFERS ) {
+            lane = pgpDevice->txBuffer[idx]->lane;
+            vc   = pgpDevice->txBuffer[idx]->vc;
+            descA = pgpDevice->reg->txLocPause;
+            descB = pgpDevice->reg->txLocOvrFlow;
+            if (descA) {
+              for (i=0; i<NUMBER_OF_LANES; i++) {
+                for (j=0; j<NUMBER_OF_VC; j++) {
+                  if ((descA>>(i*NUMBER_OF_VC+j))&1) pgpDevice->txLocPauseHisto[i*NUMBER_OF_VC+j]++;
+                }
+              }
+            }
+            if (descB) {
+              for (i=0; i<NUMBER_OF_LANES; i++) {
+                for (j=0; j<NUMBER_OF_VC; j++) {
+                  if ((descB>>(i*NUMBER_OF_VC+j))&1) pgpDevice->txLocOvrFlowHisto[i*NUMBER_OF_VC+j]++;
+                }
+              }
+            }
             // Return to queue
             pgpDevice->txBuffer[idx]->allocated = 0;
             pgpDevice->txBufferCount = countTxBuffers(pgpDevice);
@@ -655,7 +677,7 @@ static irqreturn_t PgpCardG3_IRQHandler(int irq, void *dev_id, struct pt_regs *r
         tossIt = 0;
         // Read descriptor
         descA = pgpDevice->reg->rxRead[0];   // RxBuffer struct fields from the firmware
-        asm("nop");//no operation function to force sequential MEM IO read (first rxRead[0] then rxRead[1])
+        asm("nop");//no operation instruction to force sequential MEM IO read (first rxRead[0] then rxRead[1])
         descB = pgpDevice->reg->rxRead[1];   // DMA pointer with next valid field in bit 1 from the firmware
         if( (descB & 1) == 1 ) {
           lane = (descA >> 26) & 7;
@@ -972,11 +994,16 @@ static int PgpCardG3_Probe(struct pci_dev *pcidev, const struct pci_device_id *d
     pgpDevice->txHisto[idx] = 0;
   }
   pgpDevice->txHistoLV = (__u32*)vmalloc(NUMBER_OF_LANES*NUMBER_OF_VC*sizeof(__u32));
+  pgpDevice->txLocPauseHisto = (__u32*)vmalloc(NUMBER_OF_LANES*NUMBER_OF_VC*sizeof(__u32));
+  pgpDevice->txLocOvrFlowHisto = (__u32*)vmalloc(NUMBER_OF_LANES*NUMBER_OF_VC*sizeof(__u32));
   for ( idx=0; idx < NUMBER_OF_LANES; idx++ ) {
     for (i= 0; i < NUMBER_OF_VC; i++) {
       pgpDevice->txHistoLV[idx*NUMBER_OF_VC+i] = 0;
+      pgpDevice->txLocPauseHisto[idx*NUMBER_OF_VC+i] = 0;
+      pgpDevice->txLocOvrFlowHisto[idx*NUMBER_OF_VC+i] = 0;
     }
   }
+
 
   pgpDevice->txRead  = 0;
   pgpDevice->txBufferCount = 0;
@@ -988,6 +1015,9 @@ static int PgpCardG3_Probe(struct pci_dev *pcidev, const struct pci_device_id *d
 
   // Set max frame size, clear rx buffer reset
   pgpDevice->reg->rxMaxFrame = DEF_RX_BUF_SIZE | 0x80000000;
+
+  // Mask run triggers
+  pgpDevice->reg->evrCardStat[0] |= (0xff<<16);
 
   // Init RX Buffers
   pgpDevice->rxBuffer   = (struct RxBuffer **) vmalloc(NUMBER_OF_RX_BUFFERS * sizeof(struct RxBuffer *));
@@ -1284,7 +1314,7 @@ int my_Ioctl(struct file *filp, __u32 cmd, __u64 argument) {
   __u32          vcMask;
   char           s1[40];
   struct PgpDevice *pgpDevice = (struct PgpDevice *)filp->private_data;
-  if (pgpDevice->debug & 0x200) printk(KERN_DEBUG "%s: entering my_Ioctl, cmd(%u), arg(%llu)\n", MOD_NAME, cmd, argument);
+  if (pgpDevice->debug & 0x200) printk(KERN_DEBUG "%s: entering my_Ioctl, cmd(%u), arg(0x%llx)\n", MOD_NAME, cmd, argument);
   stat = pgpDevice->status;
   // Determine command
   spin_lock(pgpDevice->ioctlLock);
@@ -1530,13 +1560,27 @@ int my_Ioctl(struct file *filp, __u32 cmd, __u64 argument) {
         return(SUCCESS);
         break;
 
-      // Set EVR Virtual channel masking
-      case IOCTL_Evr_Mask:
-         pgpDevice->reg->evrCardStat[2] = arg;
-         spin_unlock(pgpDevice->ioctlLock);
-         if (pgpDevice->debug & 0x80) printk(KERN_DEBUG "%s: Set EVR Virtual channel masking for %u\n", MOD_NAME, arg);
-         return(SUCCESS);
-         break;
+      // Set EVR  run lane masking
+      case IOCTL_Evr_RunMask:
+        if (pgpDevice->debug & 0x80) printk(KERN_DEBUG "%s: Set EVR run mask arg 0x%x\n", MOD_NAME, arg);
+        y = (arg>>24) & 0xff;
+        if (arg & 1) {
+          pgpDevice->reg->evrCardStat[0] |= (y<<16);
+        } else {
+          pgpDevice->reg->evrCardStat[0] &= ~(y<<16);
+        }
+        spin_unlock(pgpDevice->ioctlLock);
+        if (pgpDevice->debug & 0x80) printk(KERN_DEBUG "%s: Set EVR run mask for lanes 0x%x to %u\n", MOD_NAME, y, arg&1);
+        return(SUCCESS);
+        break;
+
+      // Clear run code counts
+      case IOCTL_Clear_Run_Count:
+        y = (arg>>24) & 0xff;
+        pgpDevice->reg->evrCardStat[0] |= (y<<8);
+        spin_unlock(pgpDevice->ioctlLock);
+        return(SUCCESS);
+        break;
 
       // Set EVR's Run Trigger OP-Code
       case IOCTL_Evr_RunCode:
@@ -1652,6 +1696,7 @@ int my_Ioctl(struct file *filp, __u32 cmd, __u64 argument) {
       stat->PciBaseLen   = pgpDevice->baseLen;
 
       tmp = pgpDevice->reg->evrCardStat[0];
+      stat->EvrRunMask = (tmp >> 16) & 0xff;
       stat->EvrReady  = (tmp >>  4) & 0x1;
       stat->EvrErrCnt = pgpDevice->reg->evrLinkErrorCount;
       stat->EvrFiducial = pgpDevice->reg->evrFiducial;
@@ -1873,7 +1918,7 @@ int my_Ioctl(struct file *filp, __u32 cmd, __u64 argument) {
           pgpDevice->reg->rxFreeStat[6] & 0x3ff, pgpDevice->reg->rxFreeStat[7] & 0x3ff);
       printk(KERN_DEBUG "%s:Lane Rx Histo:\n", MOD_NAME);
       for ( i=0; i < NUMBER_OF_LANES; i++ ) {
-        printk(KERN_DEBUG "%s:\tLane %u - %6u %6u %6u %6u\n", MOD_NAME, i,
+        printk(KERN_DEBUG "%s:\tLane %u - %9u %9u %9u %9u\n", MOD_NAME, i,
             pgpDevice->rxLaneHisto[i][0],
             pgpDevice->rxLaneHisto[i][1],
             pgpDevice->rxLaneHisto[i][2],
@@ -1881,11 +1926,27 @@ int my_Ioctl(struct file *filp, __u32 cmd, __u64 argument) {
       }
       printk(KERN_DEBUG "%s:Lane Tx Histo:\n", MOD_NAME);
       for ( i=0; i < NUMBER_OF_LANES; i++) {
-        printk(KERN_DEBUG "%s:\tLane %u - %6u %6u %6u %6u\n", MOD_NAME, i,
+        printk(KERN_DEBUG "%s:\tLane %u - %9u %9u %9u %9u\n", MOD_NAME, i,
             pgpDevice->txHistoLV[i*NUMBER_OF_VC+0],
             pgpDevice->txHistoLV[i*NUMBER_OF_VC+1],
             pgpDevice->txHistoLV[i*NUMBER_OF_VC+2],
             pgpDevice->txHistoLV[i*NUMBER_OF_VC+3]);
+      }
+      printk(KERN_DEBUG "%s:Lane Tx Loc Pause Histo:\n", MOD_NAME);
+      for ( i=0; i < NUMBER_OF_LANES; i++) {
+        printk(KERN_DEBUG "%s:\tLane %u - %9u %9u %9u %9u\n", MOD_NAME, i,
+            pgpDevice->txLocPauseHisto[i*NUMBER_OF_VC+0],
+            pgpDevice->txLocPauseHisto[i*NUMBER_OF_VC+1],
+            pgpDevice->txLocPauseHisto[i*NUMBER_OF_VC+2],
+            pgpDevice->txLocPauseHisto[i*NUMBER_OF_VC+3]);
+      }
+      printk(KERN_DEBUG "%s:Lane Tx Loc Overflow Histo:\n", MOD_NAME);
+      for ( i=0; i < NUMBER_OF_LANES; i++) {
+        printk(KERN_DEBUG "%s:\tLane %u - %9u %9u %9u %9u\n", MOD_NAME, i,
+            pgpDevice->txLocOvrFlowHisto[i*NUMBER_OF_VC+0],
+            pgpDevice->txLocOvrFlowHisto[i*NUMBER_OF_VC+1],
+            pgpDevice->txLocOvrFlowHisto[i*NUMBER_OF_VC+2],
+            pgpDevice->txLocOvrFlowHisto[i*NUMBER_OF_VC+3]);
       }
       printk(KERN_DEBUG "%s: IRQ Loop Count Histo:\n", MOD_NAME);
       for ( i=0; i < NUMBER_OF_RX_BUFFERS; i++ ) {
@@ -2053,7 +2114,7 @@ int dumpWarning(struct PgpDevice *pgpDevice) {
       pgpDevice->reg->rxFreeStat[6] & 0x3ff, pgpDevice->reg->rxFreeStat[7] & 0x3ff);
   printk(KERN_WARNING "%s:Lane Rx Histo:\n", MOD_NAME);
   for ( i=0; i < NUMBER_OF_LANES; i++ ) {
-    printk(KERN_WARNING "%s:\tLane %u - %6u %6u %6u %6u\n", MOD_NAME, i,
+    printk(KERN_WARNING "%s:\tLane %u - %9u %9u %9u %9u\n", MOD_NAME, i,
         pgpDevice->rxLaneHisto[i][0],
         pgpDevice->rxLaneHisto[i][1],
         pgpDevice->rxLaneHisto[i][2],
@@ -2061,7 +2122,7 @@ int dumpWarning(struct PgpDevice *pgpDevice) {
   }
   printk(KERN_DEBUG "%s:Lane Tx Histo:\n", MOD_NAME);
   for ( i=0; i < NUMBER_OF_LANES; i++) {
-    printk(KERN_DEBUG "%s:\tLane %u - %6u %6u %6u %6u\n", MOD_NAME, i,
+    printk(KERN_DEBUG "%s:\tLane %u - %9u %9u %9u %9u\n", MOD_NAME, i,
         pgpDevice->txHistoLV[i*NUMBER_OF_VC+0],
         pgpDevice->txHistoLV[i*NUMBER_OF_VC+1],
         pgpDevice->txHistoLV[i*NUMBER_OF_VC+2],
