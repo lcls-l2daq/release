@@ -607,6 +607,8 @@ static irqreturn_t PgpCardG3_IRQHandler(int irq, void *dev_id, struct pt_regs *r
     } else {
       pgpDevice->interruptNesting += 1;
     }
+    pgpDevice->irqRetryHisto[(stat>>2) - pgpDevice->irqRetryAccumulator] += 1;
+    pgpDevice->irqRetryAccumulator = stat>>2;
     // Read Tx completion status
     stat = pgpDevice->reg->txStat[1];
     // Tx Data is ready
@@ -1023,6 +1025,8 @@ static int PgpCardG3_Probe(struct pci_dev *pcidev, const struct pci_device_id *d
   pgpDevice->rxBuffer   = (struct RxBuffer **) vmalloc(NUMBER_OF_RX_BUFFERS * sizeof(struct RxBuffer *));
 
   pgpDevice->rxHisto = (__u32*)vmalloc(NUMBER_OF_RX_BUFFERS * sizeof(__u32));
+  pgpDevice->irqRetryHisto = (__u32*)vmalloc(IRQ_HISTO_SIZE * sizeof(__u32));
+  pgpDevice->irqRetryAccumulator = 0;
   pgpDevice->rxBufferCount = 0;
   pgpDevice->rxLoopHisto = (__u32*)vmalloc(NUMBER_OF_RX_BUFFERS * sizeof(__u32));
   for ( i=0; i < NUMBER_OF_RX_BUFFERS; i++ ) {
@@ -1042,6 +1046,10 @@ static int PgpCardG3_Probe(struct pci_dev *pcidev, const struct pci_device_id *d
 
   for ( idx=0; idx < NUMBER_OF_RX_BUFFERS; idx++ ) {
     pgpDevice->rxHisto[idx] = 0;
+  }
+
+  for ( idx=0; idx < IRQ_HISTO_SIZE; idx++ ) {
+    pgpDevice->irqRetryHisto[idx] = 0;
   }
 
   for ( idx=0; idx < NUMBER_OF_RX_BUFFERS; idx++ ) {
@@ -1144,6 +1152,10 @@ static void PgpCardG3_Remove(struct pci_dev *pcidev) {
     }
     if (pgpDevice->txHisto) {
       vfree(pgpDevice->txHisto);
+    }
+
+    if (pgpDevice->irqRetryHisto) {
+      vfree(pgpDevice->irqRetryHisto);
     }
 
     // Free RX Buffers
@@ -1405,9 +1417,13 @@ int my_Ioctl(struct file *filp, __u32 cmd, __u64 argument) {
     case IOCTL_Count_Reset:
       pgpDevice->reg->cardRstStat |= 0x00000001;
       pgpDevice->reg->cardRstStat &= 0xFFFFFFFE;
+      for ( i=0; i < IRQ_HISTO_SIZE; i++ ) {
+        pgpDevice->irqRetryHisto[i] = 0;
+      }
       for ( i=0; i < NUMBER_OF_RX_BUFFERS; i++ ) {
         pgpDevice->rxHisto[i] = 0;
       }
+      pgpDevice->irqRetryAccumulator = 0;
       for ( i=0; i < NUMBER_OF_RX_BUFFERS; i++ ) {
         pgpDevice->rxLoopHisto[i] = 0;
       }
@@ -1811,6 +1827,13 @@ int my_Ioctl(struct file *filp, __u32 cmd, __u64 argument) {
         }
       }
 
+      printk(KERN_DEBUG "%s Ioctl: IRQ retry histo ...\n", MOD_NAME);
+      for (i=0; i<IRQ_HISTO_SIZE; i++) {
+        if (pgpDevice->irqRetryHisto[i]) {
+          printk(KERN_DEBUG "%s: \t%4d %3u\n", MOD_NAME, i, pgpDevice->irqRetryHisto[i]);
+        }
+      }
+
       // Rx Buffers
       spin_lock_irq(pgpDevice->rxLock);
       countRxBuffers(pgpDevice, 0);
@@ -1998,6 +2021,13 @@ int dumpWarning(struct PgpDevice *pgpDevice) {
 
   spin_lock(pgpDevice->ioctlLock);
   printk(KERN_WARNING "%s Driver State on closing clients\n", MOD_NAME);
+
+  printk(KERN_DEBUG "%s Ioctl: IRQ retry histo ...\n", MOD_NAME);
+  for (i=0; i<IRQ_HISTO_SIZE; i++) {
+    if (pgpDevice->irqRetryHisto[i]) {
+      printk(KERN_DEBUG "%s: \t%4d %3u\n", MOD_NAME, i, pgpDevice->irqRetryHisto[i]);
+    }
+  }
 
   printk(KERN_DEBUG "%s: Ioctl: Open Clients ...\n", MOD_NAME);
 

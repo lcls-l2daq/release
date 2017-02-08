@@ -52,7 +52,9 @@
 
 // Module Name
 #define MOD_NAME "pgpcardG3"
-#define PGPCARD_VERSION "pgpcardG3 driver v02.02.12"
+#define PGPCARD_VERSION "pgpcardG3 driver v02.02.13"
+
+#define IRQ_HISTO_SIZE 1024
 
 //   for multiple port devices we now have an add next port IOCTL command.
 #define NUMBER_OF_MINOR_DEVICES (NUMBER_OF_LANES + 1) 
@@ -193,6 +195,8 @@ struct PgpDevice {
    __u32            rxCopyToUserPrintCount;
    __u32            rxTossedBuffers[NUMBER_OF_LANE_CLIENTS];
    __u32            rxTotalTossedBuffers;
+   __u32            irqRetryAccumulator;
+   __u32*           irqRetryHisto;
 
    // Top pointer for tx queue
    __u32             txBufferCount;
