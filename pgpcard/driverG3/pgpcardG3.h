@@ -22,6 +22,8 @@
 #include <linux/spinlock.h>
 #include <asm/spinlock.h>
 
+#define RHEL7 1
+
 #define NUMBER_OF_LANES 8
 #define NUMBER_OF_VC 4
 #define MAXIMUM_NUMBER_LANES_PER_CLIENT 2
@@ -301,7 +303,9 @@ static struct pci_driver PgpCardG3Driver = {
 struct file_operations PgpCardG3_Intf = {
    read:    PgpCardG3_Read,
    write:   PgpCardG3_Write,
+#ifndef RHEL7
    ioctl:   PgpCardG3_Ioctl,
+#endif RHEL7
    open:    PgpCardG3_Open,
    release: PgpCardG3_Release,
    poll:    PgpCardG3_Poll,
