@@ -40,6 +40,7 @@ hdf5_use       := /reg/common/package/hdf5/1.8.17
 szip_use       := /reg/common/package/szip/2.1
 psalg_use      := /reg/common/package/psalg/1.0.9
 pdsdata_use    := /reg/common/package/pdsdata/8.7.3
+hsd_use        := /reg/g/pcds/package/external/hsd/v0.0.0
 
 #
 #  *_use_include definitions will create a directory structure under build for
@@ -109,6 +110,7 @@ ifneq ($(filter pds, $(rprojects)),)
       libusb \
       usdusb4 \
       slsdet \
+      hsd \
       pds \
       pdsapp
 
