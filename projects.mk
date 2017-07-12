@@ -39,8 +39,13 @@ ndarray_use    := /reg/common/package/ndarray/1.1.3/x86_64-rhel5-gcc41-opt
 hdf5_use       := /reg/common/package/hdf5/1.8.17
 szip_use       := /reg/common/package/szip/2.1
 psalg_use      := /reg/common/package/psalg/1.0.9
-pdsdata_use    := /reg/common/package/pdsdata/8.7.3
-hsd_use        := /reg/g/pcds/package/external/hsd/v0.0.0
+#  requires boost 1.57.0 (boost_atomic.hpp)
+#cpsw_use       := /reg/g/pcds/package/external/cpsw
+cpsw_use       := /reg/common/package/cpsw/framework-R3-4/x86_64-rhel7-opt
+cpsw_boost_use := /reg/common/package/boost/1.57.0/x86_64-rhel7-gcc48-opt/
+yaml_use       := /reg/common/package/yaml-cpp/yaml-cpp-0.5.3/x86_64-rhel7-gcc48-opt
+pdsdata_use    := /reg/common/package/pdsdata/l2devn
+hsd_use        := /reg/g/pcds/package/external/hsd/v0.0.1
 
 #
 #  *_use_include definitions will create a directory structure under build for
@@ -92,7 +97,10 @@ projects += \
       szip \
       qwt \
       psalg \
-      python
+      python \
+      cpsw \
+      cpsw_boost \
+      yaml
 
 ifneq ($(filter pds, $(rprojects)),)
   projects += \
@@ -125,7 +133,7 @@ else
   timetool_use_lib_x86_64 := $(timetool_use)/lib/x86_64-linux-opt
 endif
 
-projects += timetool
+#projects += timetool
 
 ifneq ($(filter ami, $(rprojects)),)
   projects += gsl ami
