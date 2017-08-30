@@ -46,6 +46,7 @@ cpsw_boost_use := /reg/common/package/boost/1.57.0/x86_64-rhel7-gcc48-opt/
 yaml_use       := /reg/common/package/yaml-cpp/yaml-cpp-0.5.3/x86_64-rhel7-gcc48-opt
 pdsdata_use    := /reg/common/package/pdsdata/l2devn
 hsd_use        := /reg/g/pcds/package/external/hsd/v0.0.1
+libfabric_use  := /reg/common/package/libfabric/1.4.2
 
 #
 #  *_use_include definitions will create a directory structure under build for
@@ -77,6 +78,10 @@ pdsdata_use_include:= $(pdsdata_use)/i386-linux-opt
 pdsdata_use_i386   := $(pdsdata_use)/i386-linux
 pdsdata_use_x86_64 := $(pdsdata_use)/x86_64-linux
 
+libfabric_use_include    := $(libfabric_use)/include
+libfabric_use_lib_x86_64 := $(libfabric_use)/lib
+libfabric_use_x86_64     := $(libfabric_use)/bin
+
 projects :=
 
 # RHEL6 has qt in its distribution
@@ -100,7 +105,8 @@ projects += \
       python \
       cpsw \
       cpsw_boost \
-      yaml
+      yaml \
+			libfabric
 
 ifneq ($(filter pds, $(rprojects)),)
   projects += \
