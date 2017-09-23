@@ -1,0 +1,12 @@
+[submodule "pdsapp"]
+	path = pdsapp
+	url = git@github.com:lcls-l2daq/pdsapp.git
+[submodule "pds"]
+	path = pds
+	url = git@github.com:lcls-l2daq/pds.git
+[submodule "tools"]
+	path = tools
+	url = git@github.com:lcls-l2daq/tools.git
+[submodule "timetool"]
+	path = timetool
+	url = git@github.com:lcls-l2daq/timetool.git

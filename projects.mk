@@ -80,7 +80,7 @@ pdsdata_use_x86_64 := $(pdsdata_use)/x86_64-linux
 
 libfabric_use_include    := $(libfabric_use)/include
 libfabric_use_lib_x86_64 := $(libfabric_use)/lib
-libfabric_use_x86_64     := $(libfabric_use)/bin
+#libfabric_use_x86_64     := $(libfabric_use)/bin
 
 projects :=
 
